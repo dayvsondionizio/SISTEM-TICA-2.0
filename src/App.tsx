@@ -28,7 +28,8 @@ import {
   Layers,
   Plus,
   PlayCircle,
-  XCircle as XCircleIcon
+  XCircle as XCircleIcon,
+  Edit3
 } from 'lucide-react';
 import { ModalSalvar, TelaHistorico, DetalheAuditoria, type AuditoriaSalva, type FornecedorSalvo } from './historico';
 import { salvarAuditoria, carregarClientes, carregarHistorico, excluirAuditoria, salvarRascunho, carregarRascunhos, excluirRascunho, type Cliente, type RascunhoAuditoria, type BakeryItemSalvo } from './storage';
@@ -692,7 +693,27 @@ function TelaHome({ onSelectCliente, onOpenClientes, onOpenHistorico, reloadKey 
   reloadKey?: number;
 }) {
   const [clientes, setClientes] = useState<Cliente[]>([]);
+  const [editandoId, setEditandoId] = useState<string | null>(null);
+  const [editNome, setEditNome] = useState('');
+  const [editCnpj, setEditCnpj] = useState('');
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   React.useEffect(() => { carregarClientes().then(setClientes); }, [reloadKey]);
+
+  const handleEditar = (e: React.MouseEvent, c: Cliente) => {
+    e.stopPropagation();
+    setEditandoId(c.id); setEditNome(c.nome); setEditCnpj(c.cnpj);
+  };
+  const handleSalvarEdicao = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const nova = clientes.map(c => c.id === editandoId ? { ...c, nome: editNome.trim(), cnpj: editCnpj.trim() } : c);
+    await (await import('./storage')).persistirClientes(nova);
+    setClientes(nova); setEditandoId(null);
+  };
+  const handleExcluir = async (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    await (await import('./storage')).excluirCliente(id);
+    setClientes(prev => prev.filter(c => c.id !== id)); setConfirmDelete(null);
+  };
 
   return (
     <div className="min-h-screen flex flex-col" style={{ background: 'linear-gradient(135deg, #001022 0%, #001F3F 50%, #002d5c 100%)' }}>
@@ -748,28 +769,65 @@ function TelaHome({ onSelectCliente, onOpenClientes, onOpenHistorico, reloadKey 
           <div className="w-full max-w-4xl space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {clientes.map(c => (
-                <button
+                <div
                   key={c.id}
-                  onClick={() => onSelectCliente(c)}
-                  className="group relative bg-white/5 hover:bg-white/10 border border-white/10 hover:border-[#F5C000]/50 rounded-2xl p-6 text-left transition-all duration-200 hover:shadow-2xl hover:shadow-[#F5C000]/10 hover:-translate-y-1 backdrop-blur-sm overflow-hidden"
+                  className="group relative bg-white/5 hover:bg-white/10 border border-white/10 hover:border-[#F5C000]/50 rounded-2xl p-6 text-left transition-all duration-200 hover:shadow-2xl hover:shadow-[#F5C000]/10 hover:-translate-y-1 backdrop-blur-sm overflow-hidden cursor-pointer"
+                  onClick={() => editandoId !== c.id && confirmDelete !== c.id && onSelectCliente(c)}
                 >
-                  {/* Glow dourado no hover */}
                   <div className="absolute inset-0 bg-gradient-to-br from-[#F5C000]/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl" />
 
-                  <div className="relative flex items-start justify-between mb-4">
-                    <div className="bg-white/10 group-hover:bg-[#F5C000] p-3 rounded-xl transition-all duration-200">
-                      <Building2 className="w-5 h-5 text-white group-hover:text-[#001F3F] transition-colors duration-200" />
+                  {editandoId === c.id ? (
+                    /* Modo edição */
+                    <div className="relative space-y-2" onClick={e => e.stopPropagation()}>
+                      <input
+                        className="w-full bg-white/10 border border-white/20 rounded-xl px-3 py-2 text-white text-sm font-bold outline-none focus:border-[#F5C000]"
+                        value={editNome} onChange={e => setEditNome(e.target.value)} placeholder="Nome"
+                      />
+                      <input
+                        className="w-full bg-white/10 border border-white/20 rounded-xl px-3 py-2 text-white/60 text-xs font-mono outline-none focus:border-[#F5C000]"
+                        value={editCnpj} onChange={e => setEditCnpj(e.target.value)} placeholder="CNPJ (opcional)"
+                      />
+                      <div className="flex gap-2 pt-1">
+                        <button onClick={handleSalvarEdicao} className="flex-1 bg-[#F5C000] text-[#001F3F] text-xs font-black py-2 rounded-xl">Salvar</button>
+                        <button onClick={e => { e.stopPropagation(); setEditandoId(null); }} className="flex-1 bg-white/10 text-white/60 text-xs font-bold py-2 rounded-xl">Cancelar</button>
+                      </div>
                     </div>
-                    <ChevronRight className="w-5 h-5 text-white/20 group-hover:text-[#F5C000] transition-colors mt-1" />
-                  </div>
-                  <p className="relative font-black text-white text-base leading-tight truncate">{c.nome}</p>
-                  {c.cnpj && <p className="relative text-xs text-white/30 font-mono mt-1">{c.cnpj}</p>}
-                  <div className="relative mt-4 pt-4 border-t border-white/10">
-                    <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest group-hover:text-[#F5C000]/70 transition-colors">
-                      Iniciar auditoria →
-                    </p>
-                  </div>
-                </button>
+                  ) : confirmDelete === c.id ? (
+                    /* Confirmar exclusão */
+                    <div className="relative space-y-3" onClick={e => e.stopPropagation()}>
+                      <p className="text-white/80 text-sm font-bold">Excluir <span className="text-white">{c.nome}</span>?</p>
+                      <p className="text-white/40 text-xs">Esta ação não pode ser desfeita.</p>
+                      <div className="flex gap-2">
+                        <button onClick={e => handleExcluir(e, c.id)} className="flex-1 bg-red-500 hover:bg-red-600 text-white text-xs font-black py-2 rounded-xl">Excluir</button>
+                        <button onClick={e => { e.stopPropagation(); setConfirmDelete(null); }} className="flex-1 bg-white/10 text-white/60 text-xs font-bold py-2 rounded-xl">Cancelar</button>
+                      </div>
+                    </div>
+                  ) : (
+                    /* Visualização normal */
+                    <>
+                      <div className="relative flex items-start justify-between mb-4">
+                        <div className="bg-white/10 group-hover:bg-[#F5C000] p-3 rounded-xl transition-all duration-200">
+                          <Building2 className="w-5 h-5 text-white group-hover:text-[#001F3F] transition-colors duration-200" />
+                        </div>
+                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button onClick={e => handleEditar(e, c)} className="p-1.5 bg-white/10 hover:bg-white/20 rounded-lg transition-colors" title="Editar">
+                            <Edit3 className="w-3.5 h-3.5 text-white/60" />
+                          </button>
+                          <button onClick={e => { e.stopPropagation(); setConfirmDelete(c.id); }} className="p-1.5 bg-white/10 hover:bg-red-500/40 rounded-lg transition-colors" title="Excluir">
+                            <Trash2 className="w-3.5 h-3.5 text-white/60" />
+                          </button>
+                        </div>
+                      </div>
+                      <p className="relative font-black text-white text-base leading-tight truncate">{c.nome}</p>
+                      {c.cnpj && <p className="relative text-xs text-white/30 font-mono mt-1">{c.cnpj}</p>}
+                      <div className="relative mt-4 pt-4 border-t border-white/10">
+                        <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest group-hover:text-[#F5C000]/70 transition-colors">
+                          Iniciar auditoria →
+                        </p>
+                      </div>
+                    </>
+                  )}
+                </div>
               ))}
 
               {/* Card novo cliente */}
