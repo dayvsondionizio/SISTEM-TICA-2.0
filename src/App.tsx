@@ -1362,6 +1362,31 @@ export default function App() {
     );
   }
 
+  // Summary table efetiva — recalcula quando há descartes
+  const summaryTableEfetiva = React.useMemo(() => {
+    if (!processedData) return [];
+    const orig = processedData.summary.summaryTable;
+    if (!descartadosTemp || descartadosTemp.size === 0) return orig;
+    const rnd = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
+    const ativos = processedData.summary.simplesSuppliers.filter((_, i) => !descartadosTemp.has(i));
+    const normalRow = orig.find(r => r.label.toUpperCase() === 'NORMAL' || (r.label.toUpperCase().includes('NORMAL') && !r.label.toUpperCase().includes('SIMPLES') && !r.label.toUpperCase().includes('PROJEÇÃO')));
+    const totalSimplesIcms = rnd(ativos.reduce((a, s) => a + s.originalValue, 0));
+    const totalSimplesValor = rnd(ativos.reduce((a, s) => a + s.productTotal, 0));
+    const totalProjetado = rnd(ativos.reduce((a, s) => a + s.newValue, 0));
+    const totalNormalIcms = normalRow?.icmsAntecipado ?? 0;
+    const totalNormalValor = normalRow?.valorTotal ?? 0;
+    const totalPagoReal = rnd(totalNormalIcms + totalSimplesIcms);
+    const totalProjetadoIdeal = rnd(totalNormalIcms + totalProjetado);
+    return [
+      ...(normalRow ? [normalRow] : []),
+      { label: 'Simples Nacional', valorTotal: totalSimplesValor, icmsAntecipado: totalSimplesIcms },
+      { label: 'Projeção (Normal)', valorTotal: totalSimplesValor, icmsAntecipado: totalProjetado },
+      { label: 'Total ICMS Pago (Real)', valorTotal: totalNormalValor + totalSimplesValor, icmsAntecipado: totalPagoReal },
+      { label: 'Total ICMS Projetado (Cenário Ideal)', valorTotal: totalNormalValor + totalSimplesValor, icmsAntecipado: totalProjetadoIdeal },
+      { label: 'Diferença (Economia)', valorTotal: 0, icmsAntecipado: rnd(totalPagoReal - totalProjetadoIdeal) },
+    ];
+  }, [processedData, descartadosTemp]);
+
   const handleSalvarHistorico = (_empresa: string, mes: string) => {
     if (!processedData || !clienteAtivo) return;
     setSalvando(true);
@@ -1380,8 +1405,8 @@ export default function App() {
       criadoEm: new Date().toISOString(),
       nomeEmpresa: clienteAtivo.nome,
       mesReferencia: mes,
-      totalIcmsPago: processedData.summary.summaryTable.find(r => r.label.includes('Real'))?.icmsAntecipado || 0,
-      totalIcmsProjetado: processedData.summary.summaryTable.find(r => r.label.includes('Ideal'))?.icmsAntecipado || 0,
+      totalIcmsPago: summaryTableEfetiva.find(r => r.label.includes('Real'))?.icmsAntecipado || 0,
+      totalIcmsProjetado: summaryTableEfetiva.find(r => r.label.includes('Ideal'))?.icmsAntecipado || 0,
       economiaTotal: processedData.summary.totalEconomy,
       totalRegistros: processedData.summary.recordCount,
       percentualSistematica: wheatPrintData?.percentage ?? null,
@@ -1395,7 +1420,7 @@ export default function App() {
         ncm: i.ncm,
         value: i.value,
       })) ?? [],
-      summaryTable: processedData.summary.summaryTable,
+      summaryTable: summaryTableEfetiva,
     };
     salvarAuditoria(auditoria).then(() => {
       setSalvando(false);
@@ -2621,7 +2646,7 @@ NENHUMA PALAVRA OU EXPLICAÇÃO DEVE SER ESCRITA NA RESPOSTA ALÉM DO ARRAY JSON
               {/* Dashboard Section */}
               <SimplesDashboard
                 data={processedData.summary.simplesSuppliers}
-                summaryTable={processedData.summary.summaryTable}
+                summaryTable={summaryTableEfetiva}
                 fileName={processedData.fileName}
                 descartados={descartadosTemp}
                 onToggleDescartar={(idx) => setDescartadosTemp(prev => {
@@ -2747,7 +2772,7 @@ NENHUMA PALAVRA OU EXPLICAÇÃO DEVE SER ESCRITA NA RESPOSTA ALÉM DO ARRAY JSON
               economia: s.economy,
               descartado: false,
             })),
-            summaryTable: processedData.summary.summaryTable,
+            summaryTable: summaryTableEfetiva,
             bakeryItems: (wheatPrintData?.bakeryItems ?? []).map((b: any) => ({
               description: b.description,
               supplier: b.supplier,
