@@ -19,7 +19,7 @@ interface TelaClientesProps {
 }
 
 export function TelaClientes({ onClose }: TelaClientesProps) {
-  const [lista, setLista] = useState<Cliente[]>(carregarClientes);
+  const [lista, setLista] = useState<Cliente[]>([]);
   const [adicionando, setAdicionando] = useState(false);
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
@@ -28,6 +28,8 @@ export function TelaClientes({ onClose }: TelaClientesProps) {
   const [cnpj, setCnpj] = useState('');
   const [editNome, setEditNome] = useState('');
   const [editCnpj, setEditCnpj] = useState('');
+
+  React.useEffect(() => { carregarClientes().then(setLista); }, []);
 
   const handleAdicionar = () => {
     if (!nome.trim()) return;
@@ -38,8 +40,7 @@ export function TelaClientes({ onClose }: TelaClientesProps) {
       criadoEm: new Date().toISOString(),
     };
     const nova = [novo, ...lista];
-    persistirClientes(nova);
-    setLista(nova);
+    persistirClientes(nova).then(() => setLista(nova));
     setNome('');
     setCnpj('');
     setAdicionando(false);
@@ -47,16 +48,12 @@ export function TelaClientes({ onClose }: TelaClientesProps) {
 
   const handleEditSalvar = (id: string) => {
     const nova = lista.map(c => c.id === id ? { ...c, nome: editNome.trim(), cnpj: editCnpj.trim() } : c);
-    persistirClientes(nova);
-    setLista(nova);
-    setEditandoId(null);
+    persistirClientes(nova).then(() => { setLista(nova); setEditandoId(null); });
   };
 
   const handleExcluir = (id: string) => {
     const nova = lista.filter(c => c.id !== id);
-    persistirClientes(nova);
-    setLista(nova);
-    setConfirmDelete(null);
+    persistirClientes(nova).then(() => { setLista(nova); setConfirmDelete(null); });
   };
 
   const iniciarEdicao = (c: Cliente) => {
@@ -214,8 +211,9 @@ interface SeletorClienteProps {
 }
 
 export function SeletorCliente({ value, onChange }: SeletorClienteProps) {
-  const clientes = carregarClientes();
+  const [clientes, setClientes] = useState<Cliente[]>([]);
   const [aberto, setAberto] = useState(false);
+  React.useEffect(() => { carregarClientes().then(setClientes); }, []);
   const selecionado = clientes.find(c => c.id === value);
 
   if (clientes.length === 0) {

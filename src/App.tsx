@@ -690,8 +690,8 @@ function TelaHome({ onSelectCliente, onOpenClientes, onOpenHistorico }: {
   onOpenClientes: () => void;
   onOpenHistorico: () => void;
 }) {
-  const [clientes, setClientes] = useState<Cliente[]>(carregarClientes);
-  React.useEffect(() => { setClientes(carregarClientes()); }, []);
+  const [clientes, setClientes] = useState<Cliente[]>([]);
+  React.useEffect(() => { carregarClientes().then(setClientes); }, []);
 
   return (
     <div className="min-h-screen flex flex-col" style={{ background: 'linear-gradient(135deg, #001022 0%, #001F3F 50%, #002d5c 100%)' }}>
@@ -816,12 +816,12 @@ function DashboardCliente({ cliente, onNovaApuracao, onVoltar, onFinalizarRascun
   onVoltar: () => void;
   onFinalizarRascunho: (r: RascunhoAuditoria) => void;
 }) {
-  const [auditorias, setAuditorias] = useState<AuditoriaSalva[]>(() =>
-    carregarHistorico().filter((a: AuditoriaSalva) => a.nomeEmpresa === cliente.nome)
-  );
-  const [rascunhos, setRascunhos] = useState<RascunhoAuditoria[]>(() =>
-    carregarRascunhos().filter(r => r.nomeEmpresa === cliente.nome)
-  );
+  const [auditorias, setAuditorias] = useState<AuditoriaSalva[]>([]);
+  const [rascunhos, setRascunhos] = useState<RascunhoAuditoria[]>([]);
+  React.useEffect(() => {
+    carregarHistorico().then(all => setAuditorias(all.filter(a => a.nomeEmpresa === cliente.nome)));
+    carregarRascunhos().then(all => setRascunhos(all.filter(r => r.nomeEmpresa === cliente.nome)));
+  }, [cliente.nome]);
   const [rascunhoAberto, setRascunhoAberto] = useState<RascunhoAuditoria | null>(null);
   const [rascunhoFinalizando, setRascunhoFinalizando] = useState<RascunhoAuditoria | null>(null);
   const [filtroAno, setFiltroAno] = useState<string | null>(String(new Date().getFullYear()));
@@ -830,8 +830,8 @@ function DashboardCliente({ cliente, onNovaApuracao, onVoltar, onFinalizarRascun
   const [auditoriaSelecionada, setAuditoriaSelecionada] = useState<AuditoriaSalva | null>(null);
 
   const recarregar = () => {
-    setAuditorias(carregarHistorico().filter((a: AuditoriaSalva) => a.nomeEmpresa === cliente.nome));
-    setRascunhos(carregarRascunhos().filter(r => r.nomeEmpresa === cliente.nome));
+    carregarHistorico().then(all => setAuditorias(all.filter(a => a.nomeEmpresa === cliente.nome)));
+    carregarRascunhos().then(all => setRascunhos(all.filter(r => r.nomeEmpresa === cliente.nome)));
   };
 
   const round = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
@@ -1038,7 +1038,7 @@ function DashboardCliente({ cliente, onNovaApuracao, onVoltar, onFinalizarRascun
                       </button>
                       {confirmDelete === a.id ? (
                         <div className="flex items-center gap-1">
-                          <button onClick={() => { excluirAuditoria(a.id); recarregar(); setConfirmDelete(null); }} className="bg-red-500 hover:bg-red-600 text-white text-xs font-bold px-3 py-2 rounded-xl">Sim</button>
+                          <button onClick={() => { excluirAuditoria(a.id).then(() => { recarregar(); setConfirmDelete(null); }); }} className="bg-red-500 hover:bg-red-600 text-white text-xs font-bold px-3 py-2 rounded-xl">Sim</button>
                           <button onClick={() => setConfirmDelete(null)} className="bg-slate-100 text-slate-600 text-xs font-bold px-3 py-2 rounded-xl">Não</button>
                         </div>
                       ) : (
@@ -1066,7 +1066,7 @@ function DashboardCliente({ cliente, onNovaApuracao, onVoltar, onFinalizarRascun
       {rascunhoAberto && (
         <EditorRascunho
           rascunho={rascunhoAberto}
-          onSalvarAlteracoes={(r) => { salvarRascunho(r); setRascunhoAberto(r); recarregar(); }}
+          onSalvarAlteracoes={(r) => { salvarRascunho(r).then(() => { setRascunhoAberto(r); recarregar(); }); }}
           onFinalizar={(r) => {
             setRascunhoAberto(null);
             setRascunhoFinalizando(r);
@@ -1109,10 +1109,12 @@ function DashboardCliente({ cliente, onNovaApuracao, onVoltar, onFinalizarRascun
               })),
               summaryTable: rascunhoFinalizando.summaryTable,
             };
-            salvarAuditoria(auditoria);
-            excluirRascunho(rascunhoFinalizando.id);
-            setRascunhoFinalizando(null);
-            recarregar();
+            salvarAuditoria(auditoria).then(() =>
+              excluirRascunho(rascunhoFinalizando.id).then(() => {
+                setRascunhoFinalizando(null);
+                recarregar();
+              })
+            );
           }}
           onClose={() => setRascunhoFinalizando(null)}
         />
@@ -1258,9 +1260,10 @@ export default function App() {
       })) ?? [],
       summaryTable: processedData.summary.summaryTable,
     };
-    salvarAuditoria(auditoria);
-    setSalvando(false);
-    setShowModalSalvar(false);
+    salvarAuditoria(auditoria).then(() => {
+      setSalvando(false);
+      setShowModalSalvar(false);
+    });
   };
 
   const parseQuestorImage = async (file: File) => {
@@ -1796,14 +1799,10 @@ NENHUMA PALAVRA OU EXPLICAÇÃO DEVE SER ESCRITA NA RESPOSTA ALÉM DO ARRAY JSON
 
       const prompt = `Você é um auditor fiscal especializado em panificação. Os produtos abaixo já foram pré-filtrados por NCM (1101.00.10 = farinha de trigo, 1901.20.00 = pré-misturas). Avalie cada item e recomende se deve ou não ser contado na sistemática de panificação para cálculo da regra dos 7%.\n\nRegras:\n- Contar: farinhas de trigo, pré-misturas, semolina, trigo em grão diretamente relacionados à panificação\n- Não contar: itens com NCM incorreto, produtos só de nome similar mas diferentes, ou que claramente não são insumo de panificação\n\nIMPORTANTE: Responda SOMENTE com JSON array sem texto adicional:\n[{"index":0,"shouldCount":true,"confidence":"high","reason":"Farinha de trigo tipo 1"}, ...]\n\nProdutos:\n${productList}`;
 
-      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${groqApiKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'llama-3.3-70b-versatile',
-          messages: [{ role: 'user', content: prompt }],
-          temperature: 0, max_tokens: 2000
-        })
+      const response = await groqChat({
+        model: 'llama-3.3-70b-versatile',
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0, max_tokens: 2000
       });
 
       if (!response.ok) {
@@ -1870,7 +1869,7 @@ NENHUMA PALAVRA OU EXPLICAÇÃO DEVE SER ESCRITA NA RESPOSTA ALÉM DO ARRAY JSON
           bakeryItems: bakeryClassified,
           questorTotal: entry.questorVal,
         };
-        salvarRascunho(rascunho);
+        await salvarRascunho(rascunho);
         done++;
         setBatchDone(done);
         setBatchEntries(prev => prev.map(e => e.id === entry.id ? { ...e, status: 'done' } : e));
@@ -2619,8 +2618,7 @@ NENHUMA PALAVRA OU EXPLICAÇÃO DEVE SER ESCRITA NA RESPOSTA ALÉM DO ARRAY JSON
             })),
             questorTotal: questorTotal,
           };
-          salvarRascunho(rascunho);
-          setShowModalRascunho(false);
+          salvarRascunho(rascunho).then(() => setShowModalRascunho(false));
         }}
         onClose={() => setShowModalRascunho(false)}
       />

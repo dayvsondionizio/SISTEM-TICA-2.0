@@ -383,7 +383,7 @@ export function EditorRascunho({ rascunho, onFinalizar, onSalvarAlteracoes, onCl
             {confirmDelete ? (
               <div className="flex items-center gap-2">
                 <p className="text-xs text-red-500 font-bold">Excluir rascunho?</p>
-                <button onClick={() => { excluirRascunho(rascunho.id); onClose(); }}
+                <button onClick={() => { excluirRascunho(rascunho.id).then(() => onClose()); }}
                   className="text-xs bg-red-500 text-white font-bold px-3 py-1.5 rounded-xl">Sim, excluir</button>
                 <button onClick={() => setConfirmDelete(false)}
                   className="text-xs bg-slate-200 text-slate-600 font-bold px-3 py-1.5 rounded-xl">Cancelar</button>

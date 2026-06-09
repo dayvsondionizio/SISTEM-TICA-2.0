@@ -1,3 +1,5 @@
+import { supabase } from './supabaseClient';
+
 // ─── CLIENTES ─────────────────────────────────────────────────────────────────
 export interface Cliente {
   id: string;
@@ -6,17 +8,27 @@ export interface Cliente {
   criadoEm: string;
 }
 
-const KEY_CLIENTES = 'economia_icms_clientes';
-
-export function carregarClientes(): Cliente[] {
-  try {
-    const raw = localStorage.getItem(KEY_CLIENTES);
-    return raw ? JSON.parse(raw) : [];
-  } catch { return []; }
+export async function carregarClientes(): Promise<Cliente[]> {
+  const { data, error } = await supabase
+    .from('icms_clientes')
+    .select('*')
+    .order('nome');
+  if (error) { console.error('carregarClientes:', error); return []; }
+  return (data ?? []).map(r => ({
+    id: r.id, nome: r.nome, cnpj: r.cnpj ?? '', criadoEm: r.criado_em,
+  }));
 }
 
-export function persistirClientes(lista: Cliente[]) {
-  localStorage.setItem(KEY_CLIENTES, JSON.stringify(lista));
+export async function persistirClientes(lista: Cliente[]): Promise<void> {
+  // Upsert completo — insere ou atualiza
+  const rows = lista.map(c => ({ id: c.id, nome: c.nome, cnpj: c.cnpj, criado_em: c.criadoEm }));
+  const { error } = await supabase.from('icms_clientes').upsert(rows);
+  if (error) console.error('persistirClientes:', error);
+}
+
+export async function excluirCliente(id: string): Promise<void> {
+  const { error } = await supabase.from('icms_clientes').delete().eq('id', id);
+  if (error) console.error('excluirCliente:', error);
 }
 
 // ─── AUDITORIAS ───────────────────────────────────────────────────────────────
@@ -56,41 +68,74 @@ export interface AuditoriaSalva {
   percentualSistematica: number | null;
   regra7pctAtendida: boolean | null;
   fornecedores: FornecedorSalvo[];
-  // dados do relatório de panificação (trigo)
   trigoQuestorTotal?: number | null;
   trigoSelectedTotal?: number | null;
   trigoItens?: TrigoItemSalvo[];
-  // tabela de resumo da aba ICMS (necessária para o PDF idêntico ao original)
   summaryTable?: SummaryRowSalvo[];
 }
 
-const KEY_AUDITORIAS = 'economia_icms_historico';
-
-export function carregarHistorico(): AuditoriaSalva[] {
-  try {
-    const raw = localStorage.getItem(KEY_AUDITORIAS);
-    return raw ? JSON.parse(raw) : [];
-  } catch { return []; }
+function dbToAuditoria(r: any): AuditoriaSalva {
+  return {
+    id: r.id,
+    criadoEm: r.criado_em,
+    nomeEmpresa: r.nome_empresa,
+    mesReferencia: r.mes_referencia,
+    totalIcmsPago: r.total_icms_pago ?? 0,
+    totalIcmsProjetado: r.total_icms_projetado ?? 0,
+    economiaTotal: r.economia_total ?? 0,
+    totalRegistros: r.total_registros ?? 0,
+    percentualSistematica: r.percentual_sistematica ?? null,
+    regra7pctAtendida: r.regra7pct_atendida ?? null,
+    fornecedores: r.fornecedores ?? [],
+    trigoQuestorTotal: r.trigo_questor_total ?? null,
+    trigoSelectedTotal: r.trigo_selected_total ?? null,
+    trigoItens: r.trigo_itens ?? [],
+    summaryTable: r.summary_table ?? [],
+  };
 }
 
-export function salvarAuditoria(auditoria: AuditoriaSalva) {
-  const lista = carregarHistorico();
-  lista.unshift(auditoria);
-  localStorage.setItem(KEY_AUDITORIAS, JSON.stringify(lista));
+function auditoriaToDb(a: AuditoriaSalva) {
+  return {
+    id: a.id,
+    criado_em: a.criadoEm,
+    nome_empresa: a.nomeEmpresa,
+    mes_referencia: a.mesReferencia,
+    total_icms_pago: a.totalIcmsPago,
+    total_icms_projetado: a.totalIcmsProjetado,
+    economia_total: a.economiaTotal,
+    total_registros: a.totalRegistros,
+    percentual_sistematica: a.percentualSistematica ?? null,
+    regra7pct_atendida: a.regra7pctAtendida ?? null,
+    fornecedores: a.fornecedores,
+    trigo_questor_total: a.trigoQuestorTotal ?? null,
+    trigo_selected_total: a.trigoSelectedTotal ?? null,
+    trigo_itens: a.trigoItens ?? [],
+    summary_table: a.summaryTable ?? [],
+  };
 }
 
-export function atualizarAuditoria(auditoria: AuditoriaSalva) {
-  const lista = carregarHistorico();
-  const idx = lista.findIndex(a => a.id === auditoria.id);
-  if (idx !== -1) {
-    lista[idx] = auditoria;
-    localStorage.setItem(KEY_AUDITORIAS, JSON.stringify(lista));
-  }
+export async function carregarHistorico(): Promise<AuditoriaSalva[]> {
+  const { data, error } = await supabase
+    .from('icms_auditorias')
+    .select('*')
+    .order('criado_em', { ascending: false });
+  if (error) { console.error('carregarHistorico:', error); return []; }
+  return (data ?? []).map(dbToAuditoria);
 }
 
-export function excluirAuditoria(id: string) {
-  const lista = carregarHistorico().filter(a => a.id !== id);
-  localStorage.setItem(KEY_AUDITORIAS, JSON.stringify(lista));
+export async function salvarAuditoria(a: AuditoriaSalva): Promise<void> {
+  const { error } = await supabase.from('icms_auditorias').upsert(auditoriaToDb(a));
+  if (error) console.error('salvarAuditoria:', error);
+}
+
+export async function atualizarAuditoria(a: AuditoriaSalva): Promise<void> {
+  const { error } = await supabase.from('icms_auditorias').update(auditoriaToDb(a)).eq('id', a.id);
+  if (error) console.error('atualizarAuditoria:', error);
+}
+
+export async function excluirAuditoria(id: string): Promise<void> {
+  const { error } = await supabase.from('icms_auditorias').delete().eq('id', id);
+  if (error) console.error('excluirAuditoria:', error);
 }
 
 // ─── RASCUNHOS ────────────────────────────────────────────────────────────────
@@ -110,30 +155,57 @@ export interface RascunhoAuditoria {
   nomeEmpresa: string;
   mesReferencia: string;
   observacao?: string;
-  // dados da planilha processada
   fornecedores: FornecedorSalvo[];
   summaryTable: SummaryRowSalvo[];
-  // dados do trigo
   bakeryItems: BakeryItemSalvo[];
   questorTotal: number | null;
 }
 
-const KEY_RASCUNHOS = 'economia_icms_rascunhos';
-
-export function carregarRascunhos(): RascunhoAuditoria[] {
-  try {
-    const raw = localStorage.getItem(KEY_RASCUNHOS);
-    return raw ? JSON.parse(raw) : [];
-  } catch { return []; }
+function dbToRascunho(r: any): RascunhoAuditoria {
+  return {
+    id: r.id,
+    criadoEm: r.criado_em,
+    atualizadoEm: r.atualizado_em,
+    nomeEmpresa: r.nome_empresa,
+    mesReferencia: r.mes_referencia ?? '',
+    observacao: r.observacao ?? undefined,
+    fornecedores: r.fornecedores ?? [],
+    summaryTable: r.summary_table ?? [],
+    bakeryItems: r.bakery_items ?? [],
+    questorTotal: r.questor_total ?? null,
+  };
 }
 
-export function salvarRascunho(r: RascunhoAuditoria) {
-  const lista = carregarRascunhos().filter(x => x.id !== r.id);
-  lista.unshift({ ...r, atualizadoEm: new Date().toISOString() });
-  localStorage.setItem(KEY_RASCUNHOS, JSON.stringify(lista));
+function rascunhoToDb(r: RascunhoAuditoria) {
+  return {
+    id: r.id,
+    criado_em: r.criadoEm,
+    atualizado_em: new Date().toISOString(),
+    nome_empresa: r.nomeEmpresa,
+    mes_referencia: r.mesReferencia,
+    observacao: r.observacao ?? null,
+    fornecedores: r.fornecedores,
+    summary_table: r.summaryTable,
+    bakery_items: r.bakeryItems,
+    questor_total: r.questorTotal,
+  };
 }
 
-export function excluirRascunho(id: string) {
-  const lista = carregarRascunhos().filter(r => r.id !== id);
-  localStorage.setItem(KEY_RASCUNHOS, JSON.stringify(lista));
+export async function carregarRascunhos(): Promise<RascunhoAuditoria[]> {
+  const { data, error } = await supabase
+    .from('icms_rascunhos')
+    .select('*')
+    .order('atualizado_em', { ascending: false });
+  if (error) { console.error('carregarRascunhos:', error); return []; }
+  return (data ?? []).map(dbToRascunho);
+}
+
+export async function salvarRascunho(r: RascunhoAuditoria): Promise<void> {
+  const { error } = await supabase.from('icms_rascunhos').upsert(rascunhoToDb(r));
+  if (error) console.error('salvarRascunho:', error);
+}
+
+export async function excluirRascunho(id: string): Promise<void> {
+  const { error } = await supabase.from('icms_rascunhos').delete().eq('id', id);
+  if (error) console.error('excluirRascunho:', error);
 }

@@ -156,12 +156,12 @@ export function DetalheAuditoria({ auditoria, onClose, onUpdate }: DetalheProps)
 
   const salvarNome = () => {
     const novo = { ...dados, nomeEmpresa: novoNome };
-    setDados(novo); atualizarAuditoria(novo); onUpdate(novo); setEditandoNome(false);
+    setDados(novo); atualizarAuditoria(novo).then(() => { onUpdate(novo); setEditandoNome(false); });
   };
 
   const salvarMes = () => {
     const novo = { ...dados, mesReferencia: novoMes };
-    setDados(novo); atualizarAuditoria(novo); onUpdate(novo); setEditandoMes(false);
+    setDados(novo); atualizarAuditoria(novo).then(() => { onUpdate(novo); setEditandoMes(false); });
   };
 
   return (
@@ -311,18 +311,19 @@ interface HistoricoProps {
 }
 
 export function TelaHistorico({ onClose }: HistoricoProps) {
-  const [lista, setLista] = useState<AuditoriaSalva[]>(carregarHistorico);
+  const [lista, setLista] = useState<AuditoriaSalva[]>([]);
   const [detalhe, setDetalhe] = useState<AuditoriaSalva | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
+  React.useEffect(() => { carregarHistorico().then(setLista); }, []);
+
   const handleExcluir = (id: string) => {
-    excluirAuditoria(id);
-    setLista(carregarHistorico());
+    excluirAuditoria(id).then(() => carregarHistorico().then(setLista));
     setConfirmDelete(null);
   };
 
   const handleUpdate = (a: AuditoriaSalva) => {
-    setLista(carregarHistorico());
+    carregarHistorico().then(setLista);
     setDetalhe(a);
   };
 
