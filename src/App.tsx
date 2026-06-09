@@ -249,6 +249,31 @@ function SimplesDashboard({ data, summaryTable, fileName, descartados, onToggleD
   const round = (num: number) => Math.round((num + Number.EPSILON) * 100) / 100;
   const [hoveredIdx, setHoveredIdx] = React.useState<number | null>(null);
 
+  // Recalcula summaryTable dinamicamente se houver descartes
+  const ativos = descartados && descartados.size > 0
+    ? data.filter((_, i) => !descartados.has(i))
+    : data;
+
+  const displaySummaryTable = React.useMemo(() => {
+    if (!descartados || descartados.size === 0) return summaryTable;
+    const normalRow = summaryTable.find(r => r.label.toUpperCase() === 'NORMAL' || (r.label.toUpperCase().includes('NORMAL') && !r.label.toUpperCase().includes('SIMPLES') && !r.label.toUpperCase().includes('PROJEÇÃO')));
+    const totalSimplesIcms = round(ativos.reduce((a, s) => a + s.originalValue, 0));
+    const totalSimplesValor = round(ativos.reduce((a, s) => a + s.productTotal, 0));
+    const totalProjetado = round(ativos.reduce((a, s) => a + s.newValue, 0));
+    const totalNormalIcms = normalRow?.icmsAntecipado ?? 0;
+    const totalNormalValor = normalRow?.valorTotal ?? 0;
+    const totalPagoReal = round(totalNormalIcms + totalSimplesIcms);
+    const totalProjetadoIdeal = round(totalNormalIcms + totalProjetado);
+    return [
+      ...(normalRow ? [normalRow] : []),
+      { label: 'Simples Nacional', valorTotal: totalSimplesValor, icmsAntecipado: totalSimplesIcms },
+      { label: 'Projeção (Normal)', valorTotal: totalSimplesValor, icmsAntecipado: totalProjetado },
+      { label: 'Total ICMS Pago (Real)', valorTotal: totalNormalValor + totalSimplesValor, icmsAntecipado: totalPagoReal },
+      { label: 'Total ICMS Projetado (Cenário Ideal)', valorTotal: totalNormalValor + totalSimplesValor, icmsAntecipado: totalProjetadoIdeal },
+      { label: 'Diferença (Economia)', valorTotal: 0, icmsAntecipado: round(totalPagoReal - totalProjetadoIdeal) },
+    ];
+  }, [descartados, summaryTable, ativos]);
+
   return (
     <div className="mt-12 space-y-12 p-10 bg-white rounded-[3rem] border border-slate-200 shadow-2xl relative overflow-hidden print:overflow-visible">
       {/* Background Accent */}
@@ -272,7 +297,7 @@ function SimplesDashboard({ data, summaryTable, fileName, descartados, onToggleD
       </div>
 
       {/* Summary Table from 3rd Tab - Premium Navy Style */}
-      {summaryTable.length > 0 && (
+      {displaySummaryTable.length > 0 && (
         <div className="bg-white border border-slate-200 rounded-xl shadow-[0_10px_40px_-15px_rgba(0,31,63,0.1)] overflow-hidden">
           <div className="p-5 border-b border-slate-100 bg-[#001F3F] flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -292,7 +317,7 @@ function SimplesDashboard({ data, summaryTable, fileName, descartados, onToggleD
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {summaryTable.map((row, idx) => {
+              {displaySummaryTable.map((row, idx) => {
                 const isProjection = row.label.includes('Projeção');
                 const isDiff = row.label.includes('Diferença');
                 const isTotal = row.label.includes('Total');
