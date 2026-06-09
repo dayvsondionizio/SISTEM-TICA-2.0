@@ -134,6 +134,11 @@ export function EditorRascunho({ rascunho, onFinalizar, onSalvarAlteracoes, onCl
   const pct = questorTotal && questorTotal > 0 ? (selectedTotal / questorTotal) * 100 : null;
   const isOk = pct !== null && pct >= 7;
 
+  // Se não há itens de trigo, pode finalizar sem precisar confirmar contagem
+  const semTrigo = items.length === 0;
+  const podeFinalizarSemTrigo = semTrigo;
+  const finalizar = isConfirmed || podeFinalizarSemTrigo;
+
   const fornecedoresAtivos = fornecedores.filter(f => !f.descartado);
   const economiaAtiva = round(fornecedoresAtivos.reduce((a, f) => a + f.economia, 0));
   const descartadosCount = fornecedores.filter(f => f.descartado).length;
@@ -239,10 +244,10 @@ export function EditorRascunho({ rascunho, onFinalizar, onSalvarAlteracoes, onCl
                 <Save className="w-3.5 h-3.5" />Salvar Alterações
               </button>
               <button
-                onClick={() => isConfirmed && onFinalizar(rascunhoAtualizado)}
-                title={!isConfirmed ? 'Confirme a contagem do trigo primeiro' : ''}
+                onClick={() => finalizar && onFinalizar(rascunhoAtualizado)}
+                title={!finalizar ? 'Confirme a contagem do trigo primeiro' : ''}
                 className={`flex items-center gap-1.5 text-white text-xs font-bold px-4 py-2 rounded-xl transition-all
-                  ${isConfirmed
+                  ${finalizar
                     ? 'bg-[#001F3F] hover:bg-[#002d5c] cursor-pointer'
                     : 'bg-[#001F3F]/40 cursor-not-allowed opacity-60'
                   }`}

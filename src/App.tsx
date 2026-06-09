@@ -767,11 +767,17 @@ function TelaHome({ onSelectCliente, onOpenClientes, onOpenHistorico, reloadKey 
   reloadKey?: number;
 }) {
   const [clientes, setClientes] = useState<Cliente[]>([]);
+  const [rascunhosNomes, setRascunhosNomes] = useState<Set<string>>(new Set());
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const [editNome, setEditNome] = useState('');
   const [editCnpj, setEditCnpj] = useState('');
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   React.useEffect(() => { carregarClientes().then(setClientes); }, [reloadKey]);
+  React.useEffect(() => {
+    carregarRascunhos().then(lista => {
+      setRascunhosNomes(new Set(lista.map(r => r.nomeEmpresa)));
+    });
+  }, [reloadKey]);
 
   const handleEditar = (e: React.MouseEvent, c: Cliente) => {
     e.stopPropagation();
@@ -880,8 +886,13 @@ function TelaHome({ onSelectCliente, onOpenClientes, onOpenHistorico, reloadKey 
                     /* Visualização normal */
                     <>
                       <div className="relative flex items-start justify-between mb-4">
-                        <div className="bg-white/10 group-hover:bg-[#F5C000] p-3 rounded-xl transition-all duration-200">
-                          <Building2 className="w-5 h-5 text-white group-hover:text-[#001F3F] transition-colors duration-200" />
+                        <div className="relative">
+                          <div className="bg-white/10 group-hover:bg-[#F5C000] p-3 rounded-xl transition-all duration-200">
+                            <Building2 className="w-5 h-5 text-white group-hover:text-[#001F3F] transition-colors duration-200" />
+                          </div>
+                          {rascunhosNomes.has(c.nome) && (
+                            <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-[#F5C000] rounded-full border-2 border-[#001F3F] shadow-lg shadow-[#F5C000]/50 animate-pulse" title="Rascunho pendente" />
+                          )}
                         </div>
                         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                           <button onClick={e => handleEditar(e, c)} className="p-1.5 bg-white/10 hover:bg-white/20 rounded-lg transition-colors" title="Editar">
