@@ -685,13 +685,14 @@ function BakeryPanel({ allProducts, questorTotal, onUpdatePrintData, onPrint, wo
 }
 
 // ─── TELA HOME ────────────────────────────────────────────────────────────────
-function TelaHome({ onSelectCliente, onOpenClientes, onOpenHistorico }: {
+function TelaHome({ onSelectCliente, onOpenClientes, onOpenHistorico, reloadKey }: {
   onSelectCliente: (c: Cliente) => void;
   onOpenClientes: () => void;
   onOpenHistorico: () => void;
+  reloadKey?: number;
 }) {
   const [clientes, setClientes] = useState<Cliente[]>([]);
-  React.useEffect(() => { carregarClientes().then(setClientes); }, []);
+  React.useEffect(() => { carregarClientes().then(setClientes); }, [reloadKey]);
 
   return (
     <div className="min-h-screen flex flex-col" style={{ background: 'linear-gradient(135deg, #001022 0%, #001F3F 50%, #002d5c 100%)' }}>
@@ -1196,6 +1197,7 @@ export default function App() {
   };
 
   // Tela Home
+  const [homeReloadKey, setHomeReloadKey] = React.useState(0);
   if (tela === 'home') {
     return (
       <>
@@ -1203,8 +1205,9 @@ export default function App() {
           onSelectCliente={(c) => { setClienteAtivo(c); setTela('dashboard'); }}
           onOpenClientes={() => setShowClientes(true)}
           onOpenHistorico={() => setShowHistorico(true)}
+          reloadKey={homeReloadKey}
         />
-        {showClientes && <TelaClientes onClose={() => setShowClientes(false)} />}
+        {showClientes && <TelaClientes onClose={() => { setShowClientes(false); setHomeReloadKey(k => k + 1); }} />}
         {showHistorico && <TelaHistorico onClose={() => setShowHistorico(false)} />}
       </>
     );
