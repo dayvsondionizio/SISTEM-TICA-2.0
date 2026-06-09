@@ -314,6 +314,32 @@ export function TelaHistorico({ onClose }: HistoricoProps) {
   const [lista, setLista] = useState<AuditoriaSalva[]>([]);
   const [detalhe, setDetalhe] = useState<AuditoriaSalva | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [dropdownId, setDropdownId] = useState<string | null>(null);
+  const [printAuditoria, setPrintAuditoria] = useState<AuditoriaSalva | null>(null);
+  const [printModo, setPrintModo] = useState<'icms' | 'trigo'>('icms');
+
+  const baixarExcelCard = (a: AuditoriaSalva) => {
+    const ativos = a.fornecedores.filter(f => !f.descartado);
+    const rows: any[][] = [
+      ['Fornecedor', 'Produto', 'Valor Total', 'ICMS Pago', 'ICMS Projetado', 'Economia'],
+      ...ativos.map(f => [f.nome, f.produto, f.valorTotal, f.icmsPago, f.icmsProjetado, f.economia]),
+      [],
+      ['TOTAL', '', ativos.reduce((s,f)=>s+f.valorTotal,0), ativos.reduce((s,f)=>s+f.icmsPago,0), ativos.reduce((s,f)=>s+f.icmsProjetado,0), ativos.reduce((s,f)=>s+f.economia,0)],
+    ];
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols'] = [{wch:40},{wch:40},{wch:16},{wch:16},{wch:18},{wch:16}];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Auditoria');
+    const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'binary' });
+    const s2ab = (s: string) => { const buf = new ArrayBuffer(s.length); const v = new Uint8Array(buf); for (let i=0;i<s.length;++i) v[i]=s.charCodeAt(i)&0xFF; return buf; };
+    const blob = new Blob([s2ab(wbout)], { type: 'application/octet-stream' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `AUDITORIA_${a.nomeEmpresa.replace(/\s+/g,'_')}_${a.mesReferencia.replace('/','_')}.xlsx`;
+    document.body.appendChild(link); link.click();
+    setTimeout(() => { document.body.removeChild(link); URL.revokeObjectURL(url); }, 100);
+  };
 
   React.useEffect(() => { carregarHistorico().then(setLista); }, []);
 
@@ -331,7 +357,10 @@ export function TelaHistorico({ onClose }: HistoricoProps) {
 
   return (
     <>
-      <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+      {printAuditoria && (
+        <PrintOverlay auditoria={printAuditoria} modo={printModo} onDone={() => setPrintAuditoria(null)} />
+      )}
+      <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setDropdownId(null)}>
         <div className="bg-white rounded-3xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden">
           <div className="bg-[#001F3F] p-6 flex items-center justify-between flex-shrink-0">
             <div className="flex items-center gap-3">
@@ -400,6 +429,40 @@ export function TelaHistorico({ onClose }: HistoricoProps) {
                                 >
                                   Abrir <ChevronRight className="w-3.5 h-3.5" />
                                 </button>
+                                {/* Botão download com dropdown */}
+                                <div className="relative" onClick={e => e.stopPropagation()}>
+                                  <button
+                                    onClick={() => setDropdownId(dropdownId === a.id ? null : a.id)}
+                                    className="p-2 hover:bg-slate-100 text-slate-400 hover:text-slate-700 rounded-xl transition-colors"
+                                    title="Baixar"
+                                  >
+                                    <Download className="w-4 h-4" />
+                                  </button>
+                                  {dropdownId === a.id && (
+                                    <div className="absolute right-0 bottom-10 z-50 bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden w-44">
+                                      <button
+                                        onClick={() => { setPrintModo('icms'); setPrintAuditoria(a); setDropdownId(null); }}
+                                        className="w-full flex items-center gap-2 px-4 py-3 text-xs font-bold text-slate-700 hover:bg-sky-50 hover:text-sky-700 transition-colors"
+                                      >
+                                        <FileText className="w-3.5 h-3.5 text-sky-500" />PDF ICMS
+                                      </button>
+                                      {a.trigoItens && a.trigoItens.length > 0 && (
+                                        <button
+                                          onClick={() => { setPrintModo('trigo'); setPrintAuditoria(a); setDropdownId(null); }}
+                                          className="w-full flex items-center gap-2 px-4 py-3 text-xs font-bold text-slate-700 hover:bg-amber-50 hover:text-amber-700 transition-colors border-t border-slate-100"
+                                        >
+                                          <Wheat className="w-3.5 h-3.5 text-amber-500" />PDF Trigo
+                                        </button>
+                                      )}
+                                      <button
+                                        onClick={() => { baixarExcelCard(a); setDropdownId(null); }}
+                                        className="w-full flex items-center gap-2 px-4 py-3 text-xs font-bold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 transition-colors border-t border-slate-100"
+                                      >
+                                        <Download className="w-3.5 h-3.5 text-emerald-500" />Baixar Excel
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
                                 {confirmDelete === a.id ? (
                                   <div className="flex items-center gap-1">
                                     <button onClick={() => handleExcluir(a.id)} className="bg-red-500 hover:bg-red-600 text-white text-xs font-bold px-3 py-2 rounded-xl">Sim</button>
