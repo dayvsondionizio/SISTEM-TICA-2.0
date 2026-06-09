@@ -1297,6 +1297,7 @@ export default function App() {
   const [rascunhoParaFinalizar, setRascunhoParaFinalizar] = useState<RascunhoAuditoria | null>(null);
   const [salvando, setSalvando] = useState(false);
   const [descartadosTemp, setDescartadosTemp] = useState<Set<number>>(new Set());
+  const [homeReloadKey, setHomeReloadKey] = React.useState(0);
 
   const groqApiKey = import.meta.env.VITE_GROQ_API_KEY || sessionStorage.getItem('groqApiKey') || '';
 
@@ -1330,8 +1331,32 @@ export default function App() {
     resetUploadState();
   };
 
+  // Summary table efetiva — recalcula quando há descartes (deve ficar ANTES dos early returns)
+  const summaryTableEfetiva = React.useMemo(() => {
+    if (!processedData) return [];
+    const orig = processedData.summary.summaryTable;
+    if (!descartadosTemp || descartadosTemp.size === 0) return orig;
+    const rnd = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
+    const ativos = processedData.summary.simplesSuppliers.filter((_, i) => !descartadosTemp.has(i));
+    const normalRow = orig.find(r => r.label.toUpperCase() === 'NORMAL' || (r.label.toUpperCase().includes('NORMAL') && !r.label.toUpperCase().includes('SIMPLES') && !r.label.toUpperCase().includes('PROJEÇÃO')));
+    const totalSimplesIcms = rnd(ativos.reduce((a, s) => a + s.originalValue, 0));
+    const totalSimplesValor = rnd(ativos.reduce((a, s) => a + s.productTotal, 0));
+    const totalProjetado = rnd(ativos.reduce((a, s) => a + s.newValue, 0));
+    const totalNormalIcms = normalRow?.icmsAntecipado ?? 0;
+    const totalNormalValor = normalRow?.valorTotal ?? 0;
+    const totalPagoReal = rnd(totalNormalIcms + totalSimplesIcms);
+    const totalProjetadoIdeal = rnd(totalNormalIcms + totalProjetado);
+    return [
+      ...(normalRow ? [normalRow] : []),
+      { label: 'Simples Nacional', valorTotal: totalSimplesValor, icmsAntecipado: totalSimplesIcms },
+      { label: 'Projeção (Normal)', valorTotal: totalSimplesValor, icmsAntecipado: totalProjetado },
+      { label: 'Total ICMS Pago (Real)', valorTotal: totalNormalValor + totalSimplesValor, icmsAntecipado: totalPagoReal },
+      { label: 'Total ICMS Projetado (Cenário Ideal)', valorTotal: totalNormalValor + totalSimplesValor, icmsAntecipado: totalProjetadoIdeal },
+      { label: 'Diferença (Economia)', valorTotal: 0, icmsAntecipado: rnd(totalPagoReal - totalProjetadoIdeal) },
+    ];
+  }, [processedData, descartadosTemp]);
+
   // Tela Home
-  const [homeReloadKey, setHomeReloadKey] = React.useState(0);
   if (tela === 'home') {
     return (
       <>
@@ -1361,31 +1386,6 @@ export default function App() {
       />
     );
   }
-
-  // Summary table efetiva — recalcula quando há descartes
-  const summaryTableEfetiva = React.useMemo(() => {
-    if (!processedData) return [];
-    const orig = processedData.summary.summaryTable;
-    if (!descartadosTemp || descartadosTemp.size === 0) return orig;
-    const rnd = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
-    const ativos = processedData.summary.simplesSuppliers.filter((_, i) => !descartadosTemp.has(i));
-    const normalRow = orig.find(r => r.label.toUpperCase() === 'NORMAL' || (r.label.toUpperCase().includes('NORMAL') && !r.label.toUpperCase().includes('SIMPLES') && !r.label.toUpperCase().includes('PROJEÇÃO')));
-    const totalSimplesIcms = rnd(ativos.reduce((a, s) => a + s.originalValue, 0));
-    const totalSimplesValor = rnd(ativos.reduce((a, s) => a + s.productTotal, 0));
-    const totalProjetado = rnd(ativos.reduce((a, s) => a + s.newValue, 0));
-    const totalNormalIcms = normalRow?.icmsAntecipado ?? 0;
-    const totalNormalValor = normalRow?.valorTotal ?? 0;
-    const totalPagoReal = rnd(totalNormalIcms + totalSimplesIcms);
-    const totalProjetadoIdeal = rnd(totalNormalIcms + totalProjetado);
-    return [
-      ...(normalRow ? [normalRow] : []),
-      { label: 'Simples Nacional', valorTotal: totalSimplesValor, icmsAntecipado: totalSimplesIcms },
-      { label: 'Projeção (Normal)', valorTotal: totalSimplesValor, icmsAntecipado: totalProjetado },
-      { label: 'Total ICMS Pago (Real)', valorTotal: totalNormalValor + totalSimplesValor, icmsAntecipado: totalPagoReal },
-      { label: 'Total ICMS Projetado (Cenário Ideal)', valorTotal: totalNormalValor + totalSimplesValor, icmsAntecipado: totalProjetadoIdeal },
-      { label: 'Diferença (Economia)', valorTotal: 0, icmsAntecipado: rnd(totalPagoReal - totalProjetadoIdeal) },
-    ];
-  }, [processedData, descartadosTemp]);
 
   const handleSalvarHistorico = (_empresa: string, mes: string) => {
     if (!processedData || !clienteAtivo) return;
