@@ -270,6 +270,7 @@ interface PrintOverlayProps {
 
 export function PrintOverlay({ auditoria, modo, onDone }: PrintOverlayProps) {
   // monta dados de fornecedores ativos → formato SimplesSupplierData
+  const rnd = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
   const ativos = auditoria.fornecedores.filter(f => !f.descartado);
   const data: SimplesSupplierData[] = ativos.map(f => ({
     name: f.nome,
@@ -280,7 +281,25 @@ export function PrintOverlay({ auditoria, modo, onDone }: PrintOverlayProps) {
     economy: f.economia,
   }));
 
-  const summaryTable: SummaryRowSalvo[] = auditoria.summaryTable ?? [];
+  // Recalcula summaryTable com base nos fornecedores ATIVOS (após descartes)
+  const originalTable: SummaryRowSalvo[] = auditoria.summaryTable ?? [];
+  const normalRow = originalTable.find(r => r.label.toUpperCase() === 'NORMAL' || (r.label.toUpperCase().includes('NORMAL') && !r.label.toUpperCase().includes('SIMPLES') && !r.label.toUpperCase().includes('PROJEÇÃO')));
+  const totalSimplesAtivo = rnd(ativos.reduce((a, f) => a + f.icmsPago, 0));
+  const totalSimplesValor = rnd(ativos.reduce((a, f) => a + f.valorTotal, 0));
+  const totalProjetadoAtivo = rnd(ativos.reduce((a, f) => a + f.icmsProjetado, 0));
+  const totalNormalIcms = normalRow?.icmsAntecipado ?? 0;
+  const totalNormalValor = normalRow?.valorTotal ?? 0;
+  const totalPagoReal = rnd(totalNormalIcms + totalSimplesAtivo);
+  const totalProjetadoIdeal = rnd(totalNormalIcms + totalProjetadoAtivo);
+
+  const summaryTable: SummaryRowSalvo[] = [
+    ...(normalRow ? [normalRow] : []),
+    { label: 'Simples Nacional', valorTotal: totalSimplesValor, icmsAntecipado: totalSimplesAtivo },
+    { label: 'Projeção (Normal)', valorTotal: totalSimplesValor, icmsAntecipado: totalProjetadoAtivo },
+    { label: 'Total ICMS Pago (Real)', valorTotal: totalNormalValor + totalSimplesValor, icmsAntecipado: totalPagoReal },
+    { label: 'Total ICMS Projetado (Cenário Ideal)', valorTotal: totalNormalValor + totalSimplesValor, icmsAntecipado: totalProjetadoIdeal },
+    { label: 'Diferença (Economia)', valorTotal: 0, icmsAntecipado: rnd(totalPagoReal - totalProjetadoIdeal) },
+  ];
 
   const wheatForIcms = auditoria.trigoItens && auditoria.trigoItens.length > 0
     ? {

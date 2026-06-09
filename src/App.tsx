@@ -242,11 +242,12 @@ function PrintableReport({ data, summaryTable, fileName, isFullReport = false, w
   );
 }
 
-function SimplesDashboard({ data, summaryTable, fileName }: { data: SimplesSupplierData[], summaryTable: SummaryRow[], fileName: string }) {
-  const formatCurrency = (value: number) => 
+function SimplesDashboard({ data, summaryTable, fileName, descartados, onToggleDescartar }: { data: SimplesSupplierData[], summaryTable: SummaryRow[], fileName: string, descartados?: Set<number>, onToggleDescartar?: (idx: number) => void }) {
+  const formatCurrency = (value: number) =>
     new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 
   const round = (num: number) => Math.round((num + Number.EPSILON) * 100) / 100;
+  const [hoveredIdx, setHoveredIdx] = React.useState<number | null>(null);
 
   return (
     <div className="mt-12 space-y-12 p-10 bg-white rounded-[3rem] border border-slate-200 shadow-2xl relative overflow-hidden print:overflow-visible">
@@ -315,6 +316,54 @@ function SimplesDashboard({ data, summaryTable, fileName }: { data: SimplesSuppl
         </div>
       )}
 
+      {/* Lista de fornecedores com descarte */}
+      {onToggleDescartar && data.length > 0 && (
+        <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+          <div className="p-5 border-b border-slate-100 bg-[#001F3F] flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <TableIcon className="w-5 h-5 text-white" />
+              <span className="text-xs font-bold text-white uppercase tracking-widest">Fornecedores Simples Nacional</span>
+            </div>
+            <span className="text-[10px] font-bold text-white/50 uppercase tracking-tighter">
+              {descartados && descartados.size > 0 ? `${descartados.size} descartado(s)` : 'Passe o mouse para descartar'}
+            </span>
+          </div>
+          <div className="divide-y divide-slate-50">
+            {data.map((item, idx) => {
+              const isDescartado = descartados?.has(idx) ?? false;
+              return (
+                <div
+                  key={idx}
+                  onMouseEnter={() => setHoveredIdx(idx)}
+                  onMouseLeave={() => setHoveredIdx(null)}
+                  className={`flex items-center gap-4 px-6 py-3 transition-all ${isDescartado ? 'opacity-40 bg-red-50' : 'hover:bg-slate-50'}`}
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-sm font-bold truncate ${isDescartado ? 'line-through text-slate-400' : 'text-slate-800'}`}>{item.name}</p>
+                    <p className="text-xs text-slate-400 truncate">{item.productName}</p>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <p className="text-xs font-bold text-red-500">{formatCurrency(round(item.originalValue))}</p>
+                    <p className="text-xs text-emerald-600">{formatCurrency(round(item.economy))} eco.</p>
+                  </div>
+                  {(hoveredIdx === idx || isDescartado) && (
+                    <button
+                      onClick={() => onToggleDescartar(idx)}
+                      className={`flex-shrink-0 text-[10px] font-black px-3 py-1.5 rounded-lg transition-all ${
+                        isDescartado
+                          ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
+                          : 'bg-red-100 text-red-600 hover:bg-red-200'
+                      }`}
+                    >
+                      {isDescartado ? '↩ Restaurar' : '✕ Descartar'}
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
     </div>
   );
@@ -1222,6 +1271,7 @@ export default function App() {
   const [showModalRascunho, setShowModalRascunho] = useState(false);
   const [rascunhoParaFinalizar, setRascunhoParaFinalizar] = useState<RascunhoAuditoria | null>(null);
   const [salvando, setSalvando] = useState(false);
+  const [descartadosTemp, setDescartadosTemp] = useState<Set<number>>(new Set());
 
   const groqApiKey = import.meta.env.VITE_GROQ_API_KEY || sessionStorage.getItem('groqApiKey') || '';
 
@@ -1239,6 +1289,7 @@ export default function App() {
     ]);
     setBatchDone(0);
     setBatchRunning(false);
+    setDescartadosTemp(new Set());
     if (fileInputRef.current) fileInputRef.current.value = '';
     if (questorInputRef.current) questorInputRef.current.value = '';
   };
@@ -1297,7 +1348,7 @@ export default function App() {
       icmsPago: s.originalValue,
       icmsProjetado: s.newValue,
       economia: s.economy,
-      descartado: false,
+      descartado: descartadosTemp.has(i),
     }));
     const auditoria: AuditoriaSalva = {
       id: `${Date.now()}`,
@@ -2543,10 +2594,16 @@ NENHUMA PALAVRA OU EXPLICAÇÃO DEVE SER ESCRITA NA RESPOSTA ALÉM DO ARRAY JSON
               </div>
 
               {/* Dashboard Section */}
-              <SimplesDashboard 
-                data={processedData.summary.simplesSuppliers} 
-                summaryTable={processedData.summary.summaryTable} 
+              <SimplesDashboard
+                data={processedData.summary.simplesSuppliers}
+                summaryTable={processedData.summary.summaryTable}
                 fileName={processedData.fileName}
+                descartados={descartadosTemp}
+                onToggleDescartar={(idx) => setDescartadosTemp(prev => {
+                  const next = new Set(prev);
+                  next.has(idx) ? next.delete(idx) : next.add(idx);
+                  return next;
+                })}
               />
 
               {/* Bakery Systematic Panel */}
