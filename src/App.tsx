@@ -335,7 +335,7 @@ function BakeryPanel({ allProducts, questorTotal, onUpdatePrintData, onPrint, wo
 
   // Auto-trigger analysis when allProducts is available
   React.useEffect(() => {
-    if (allProducts && allProducts.length > 0 && groqApiKey && !analyzed) {
+    if (allProducts && allProducts.length > 0 && !analyzed) {
       setAnalyzed(true);
       runAnalysis(allProducts);
     }
@@ -1842,11 +1842,8 @@ NENHUMA PALAVRA OU EXPLICAÇÃO DEVE SER ESCRITA NA RESPOSTA ALÉM DO ARRAY JSON
   const classifyBakeryItemsForBatch = async (
     products: NonNullable<ProcessedData['allProducts']>
   ): Promise<BakeryItemSalvo[]> => {
-    if (!products.length || !groqApiKey) {
-      return products.map(p => ({
-        description: p.description, supplier: p.supplier || '—',
-        value: p.value, ncm: p.ncm || '', selected: false, aiConfidence: 'low' as const,
-      }));
+    if (!products.length) {
+      return [];
     }
 
     const BATCH_SIZE = 50;
