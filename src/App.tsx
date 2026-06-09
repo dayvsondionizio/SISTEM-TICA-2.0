@@ -32,6 +32,7 @@ import {
 } from 'lucide-react';
 import { ModalSalvar, TelaHistorico, DetalheAuditoria, type AuditoriaSalva, type FornecedorSalvo } from './historico';
 import { salvarAuditoria, carregarClientes, carregarHistorico, excluirAuditoria, salvarRascunho, carregarRascunhos, excluirRascunho, type Cliente, type RascunhoAuditoria, type BakeryItemSalvo } from './storage';
+import { groqChat } from './groqClient';
 import { ModalSalvarRascunho, EditorRascunho, CardRascunho } from './rascunho';
 import { TelaClientes } from './clientes';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -373,15 +374,11 @@ function BakeryPanel({ allProducts, questorTotal, onUpdatePrintData, onPrint, wo
 
         const prompt = `Você é um auditor fiscal especializado em panificação. Os produtos abaixo já foram pré-filtrados por NCM (1101.00.10 = farinha de trigo, 1901.20.00 = pré-misturas). Avalie cada item e recomende se deve ou não ser contado na sistemática de panificação para cálculo da regra dos 7%.\n\nRegras:\n- Contar: farinhas de trigo, pré-misturas, semolina, trigo em grão diretamente relacionados à panificação\n- Não contar: itens com NCM incorreto, produtos só de nome similar mas diferentes, ou que claramente não são insumo de panificação\n\nIMPORTANTE: Responda SOMENTE com JSON array sem texto adicional:\n[{"index":0,"shouldCount":true,"confidence":"high","reason":"Farinha de trigo tipo 1"}, ...]\n\nProdutos:\n${productList}`;
 
-        const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-          method: 'POST',
-          headers: { 'Authorization': `Bearer ${groqApiKey}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            model: 'llama-3.3-70b-versatile',
-            messages: [{ role: 'user', content: prompt }],
-            temperature: 0,
-            max_tokens: 2000
-          })
+        const response = await groqChat({
+          model: 'llama-3.3-70b-versatile',
+          messages: [{ role: 'user', content: prompt }],
+          temperature: 0,
+          max_tokens: 2000
         });
 
         if (!response.ok) {
@@ -1286,17 +1283,13 @@ Não tente realizar nenhum cálculo ou soma. Sua resposta DEVE SER UNICAMENTE, O
   {"cfop": "1.102.001", "valor": 61796.88}
 ]
 NENHUMA PALAVRA OU EXPLICAÇÃO DEVE SER ESCRITA NA RESPOSTA ALÉM DO ARRAY JSON.`;
-      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${groqApiKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'meta-llama/llama-4-scout-17b-16e-instruct',
-          messages: [{ role: 'user', content: [
-            { type: 'text', text: prompt },
-            { type: 'image_url', image_url: { url: `data:${file.type};base64,${base64}` } }
-          ]}],
-          temperature: 0, max_tokens: 500
-        })
+      const response = await groqChat({
+        model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+        messages: [{ role: 'user', content: [
+          { type: 'text', text: prompt },
+          { type: 'image_url', image_url: { url: `data:${file.type};base64,${base64}` } }
+        ]}],
+        temperature: 0, max_tokens: 500
       });
       if (!response.ok) { const e = await response.json(); throw new Error(e.error?.message || `Erro ${response.status}`); }
       const data = await response.json();
@@ -1332,17 +1325,13 @@ Não tente realizar nenhum cálculo ou soma. Sua resposta DEVE SER UNICAMENTE, O
   {"cfop": "1.102.001", "valor": 61796.88}
 ]
 NENHUMA PALAVRA OU EXPLICAÇÃO DEVE SER ESCRITA NA RESPOSTA ALÉM DO ARRAY JSON.`;
-      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${groqApiKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'meta-llama/llama-4-scout-17b-16e-instruct',
-          messages: [{ role: 'user', content: [
-            { type: 'text', text: prompt },
-            { type: 'image_url', image_url: { url: `data:${file.type};base64,${base64}` } }
-          ]}],
-          temperature: 0, max_tokens: 500
-        })
+      const response = await groqChat({
+        model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+        messages: [{ role: 'user', content: [
+          { type: 'text', text: prompt },
+          { type: 'image_url', image_url: { url: `data:${file.type};base64,${base64}` } }
+        ]}],
+        temperature: 0, max_tokens: 500
       });
       if (!response.ok) { const e = await response.json(); throw new Error(e.error?.message || `Erro ${response.status}`); }
       const data = await response.json();
