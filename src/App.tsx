@@ -29,9 +29,11 @@ import {
   Plus,
   PlayCircle,
   XCircle as XCircleIcon,
-  Edit3
+  Edit3,
+  Wheat
 } from 'lucide-react';
 import { ModalSalvar, TelaHistorico, DetalheAuditoria, type AuditoriaSalva, type FornecedorSalvo } from './historico';
+import { PrintOverlay } from './relatorio';
 import { salvarAuditoria, carregarClientes, carregarHistorico, excluirAuditoria, salvarRascunho, carregarRascunhos, excluirRascunho, type Cliente, type RascunhoAuditoria, type BakeryItemSalvo } from './storage';
 import { groqChat } from './groqClient';
 import { ModalSalvarRascunho, EditorRascunho, CardRascunho } from './rascunho';
@@ -972,6 +974,9 @@ function DashboardCliente({ cliente, onNovaApuracao, onVoltar, onFinalizarRascun
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [showHistorico, setShowHistorico] = useState(false);
   const [auditoriaSelecionada, setAuditoriaSelecionada] = useState<AuditoriaSalva | null>(null);
+  const [dropdownDownloadId, setDropdownDownloadId] = useState<string | null>(null);
+  const [printCardAuditoria, setPrintCardAuditoria] = useState<AuditoriaSalva | null>(null);
+  const [printCardModo, setPrintCardModo] = useState<'icms' | 'trigo'>('icms');
 
   const recarregar = () => {
     carregarHistorico().then(all => setAuditorias(all.filter(a => a.nomeEmpresa === cliente.nome)));
@@ -1166,20 +1171,47 @@ function DashboardCliente({ cliente, onNovaApuracao, onVoltar, onFinalizarRascun
                     </div>
 
                     {/* Ações */}
-                    <div className="flex items-center gap-2 flex-shrink-0">
+                    <div className="flex items-center gap-2 flex-shrink-0" onClick={e => e.stopPropagation()}>
                       <button
                         onClick={() => setAuditoriaSelecionada(a)}
                         className="flex items-center gap-1.5 bg-[#001F3F] hover:bg-[#002d5c] text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-colors"
                       >
                         Abrir <ChevronRight className="w-3.5 h-3.5" />
                       </button>
-                      <button
-                        onClick={() => downloadExcel(a)}
-                        title="Baixar Excel"
-                        className="p-2.5 hover:bg-emerald-50 hover:text-emerald-600 text-slate-300 rounded-xl transition-colors"
-                      >
-                        <Download className="w-4 h-4" />
-                      </button>
+                      {/* Botão download com dropdown */}
+                      <div className="relative">
+                        <button
+                          onClick={() => setDropdownDownloadId(dropdownDownloadId === a.id ? null : a.id)}
+                          title="Baixar"
+                          className="p-2.5 hover:bg-slate-100 text-slate-300 hover:text-slate-600 rounded-xl transition-colors"
+                        >
+                          <Download className="w-4 h-4" />
+                        </button>
+                        {dropdownDownloadId === a.id && (
+                          <div className="absolute right-0 bottom-11 z-50 bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden w-44">
+                            <button
+                              onClick={() => { setPrintCardModo('icms'); setPrintCardAuditoria(a); setDropdownDownloadId(null); }}
+                              className="w-full flex items-center gap-2 px-4 py-3 text-xs font-bold text-slate-700 hover:bg-sky-50 hover:text-sky-700 transition-colors"
+                            >
+                              <FileText className="w-3.5 h-3.5 text-sky-500" />PDF ICMS
+                            </button>
+                            {a.trigoItens && a.trigoItens.length > 0 && (
+                              <button
+                                onClick={() => { setPrintCardModo('trigo'); setPrintCardAuditoria(a); setDropdownDownloadId(null); }}
+                                className="w-full flex items-center gap-2 px-4 py-3 text-xs font-bold text-slate-700 hover:bg-amber-50 hover:text-amber-700 transition-colors border-t border-slate-100"
+                              >
+                                <Wheat className="w-3.5 h-3.5 text-amber-500" />PDF Trigo
+                              </button>
+                            )}
+                            <button
+                              onClick={() => { downloadExcel(a); setDropdownDownloadId(null); }}
+                              className="w-full flex items-center gap-2 px-4 py-3 text-xs font-bold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 transition-colors border-t border-slate-100"
+                            >
+                              <Download className="w-3.5 h-3.5 text-emerald-500" />Baixar Excel
+                            </button>
+                          </div>
+                        )}
+                      </div>
                       {confirmDelete === a.id ? (
                         <div className="flex items-center gap-1">
                           <button onClick={() => { excluirAuditoria(a.id).then(() => { recarregar(); setConfirmDelete(null); }); }} className="bg-red-500 hover:bg-red-600 text-white text-xs font-bold px-3 py-2 rounded-xl">Sim</button>
@@ -1200,6 +1232,9 @@ function DashboardCliente({ cliente, onNovaApuracao, onVoltar, onFinalizarRascun
         </div>
       </main>
 
+      {printCardAuditoria && (
+        <PrintOverlay auditoria={printCardAuditoria} modo={printCardModo} onDone={() => setPrintCardAuditoria(null)} />
+      )}
       {auditoriaSelecionada && (
         <DetalheAuditoria
           auditoria={auditoriaSelecionada}
