@@ -2729,9 +2729,9 @@ NENHUMA PALAVRA OU EXPLICAÇÃO DEVE SER ESCRITA NA RESPOSTA ALÉM DO ARRAY JSON
           </button>
         </div>
         <div className={printMode === 'wheat' ? 'hidden' : 'block'}>
-          <PrintableReport 
-            data={processedData.summary.simplesSuppliers} 
-            summaryTable={processedData.summary.summaryTable} 
+          <PrintableReport
+            data={processedData.summary.simplesSuppliers.filter((_, i) => !descartadosTemp.has(i))}
+            summaryTable={summaryTableEfetiva}
             fileName={processedData.fileName}
             isFullReport={printMode === 'icms'}
             wheatPrintData={wheatPrintData}
