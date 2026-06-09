@@ -2177,17 +2177,6 @@ NENHUMA PALAVRA OU EXPLICAÇÃO DEVE SER ESCRITA NA RESPOSTA ALÉM DO ARRAY JSON
           )}
         </div>
         <div className="flex items-center gap-3">
-          <button
-            onClick={() => setShowHistorico(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 border border-white/10 rounded-xl transition-all"
-          >
-            <History className="w-4 h-4 text-white/60" />
-            <span className="text-[11px] font-bold text-white/60 uppercase tracking-wider">Histórico</span>
-          </button>
-          <div className="flex items-center gap-2.5 px-4 py-2 bg-emerald-500/10 rounded-full border border-emerald-500/20 shadow-inner">
-            <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_10px_rgba(52,211,153,0.8)]" />
-            <span className="text-[11px] font-bold text-emerald-400 uppercase tracking-wider">Sistema Operacional</span>
-          </div>
         </div>
       </header>
 
