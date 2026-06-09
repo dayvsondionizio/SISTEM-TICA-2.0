@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   X, Save, Clock, Edit3, Trash2, ChevronRight, Check,
-  Calendar, FileText, AlertTriangle, Wheat, CheckCircle2, XCircle, Lock, Unlock,
+  Calendar, FileText, AlertTriangle, Wheat, CheckCircle2, XCircle, Lock, Unlock, RotateCcw,
 } from 'lucide-react';
 import {
   type RascunhoAuditoria,
@@ -112,6 +112,7 @@ interface EditorRascunhoProps {
 
 export function EditorRascunho({ rascunho, onFinalizar, onSalvarAlteracoes, onClose }: EditorRascunhoProps) {
   const [items, setItems] = useState<BakeryItemSalvo[]>(rascunho.bakeryItems);
+  const [fornecedores, setFornecedores] = useState(rascunho.fornecedores);
   const [editandoMes, setEditandoMes] = useState(false);
   const [mes, setMes] = useState(rascunho.mesReferencia);
   const [printMode, setPrintMode] = useState<'none' | 'icms' | 'trigo'>('none');
@@ -123,20 +124,48 @@ export function EditorRascunho({ rascunho, onFinalizar, onSalvarAlteracoes, onCl
     setItems(prev => prev.map((it, i) => i === idx ? { ...it, selected: !it.selected } : it));
   };
 
+  const toggleDescartar = (id: string) => {
+    setFornecedores(prev => prev.map(f => f.id === id ? { ...f, descartado: !f.descartado } : f));
+  };
+
   const selecionados = items.filter(i => i.selected);
   const selectedTotal = round(selecionados.reduce((a, i) => a + i.value, 0));
   const questorTotal = rascunho.questorTotal;
   const pct = questorTotal && questorTotal > 0 ? (selectedTotal / questorTotal) * 100 : null;
   const isOk = pct !== null && pct >= 7;
 
-  const fornecedoresAtivos = rascunho.fornecedores.filter(f => !f.descartado);
+  const fornecedoresAtivos = fornecedores.filter(f => !f.descartado);
   const economiaAtiva = round(fornecedoresAtivos.reduce((a, f) => a + f.economia, 0));
+  const descartadosCount = fornecedores.filter(f => f.descartado).length;
 
   const rascunhoAtualizado: RascunhoAuditoria = {
     ...rascunho,
     mesReferencia: mes,
     bakeryItems: items,
+    fornecedores,
   };
+
+  // Recalcula summaryTable para o PDF refletindo descartes
+  const summaryTableRascunho = React.useMemo(() => {
+    const orig = rascunho.summaryTable ?? [];
+    const normalRow = orig.find(r => r.label.toUpperCase() === 'NORMAL' || (r.label.toUpperCase().includes('NORMAL') && !r.label.toUpperCase().includes('SIMPLES') && !r.label.toUpperCase().includes('PROJEÇÃO')));
+    const ativos = fornecedoresAtivos;
+    const totalSimplesIcms = round(ativos.reduce((a, f) => a + f.icmsPago, 0));
+    const totalSimplesValor = round(ativos.reduce((a, f) => a + f.valorTotal, 0));
+    const totalProjetado = round(ativos.reduce((a, f) => a + f.icmsProjetado, 0));
+    const totalNormalIcms = normalRow?.icmsAntecipado ?? 0;
+    const totalNormalValor = normalRow?.valorTotal ?? 0;
+    const totalPagoReal = round(totalNormalIcms + totalSimplesIcms);
+    const totalProjetadoIdeal = round(totalNormalIcms + totalProjetado);
+    return [
+      ...(normalRow ? [normalRow] : []),
+      { label: 'Simples Nacional', valorTotal: totalSimplesValor, icmsAntecipado: totalSimplesIcms },
+      { label: 'Projeção (Normal)', valorTotal: totalSimplesValor, icmsAntecipado: totalProjetado },
+      { label: 'Total ICMS Pago (Real)', valorTotal: totalNormalValor + totalSimplesValor, icmsAntecipado: totalPagoReal },
+      { label: 'Total ICMS Projetado (Cenário Ideal)', valorTotal: totalNormalValor + totalSimplesValor, icmsAntecipado: totalProjetadoIdeal },
+      { label: 'Diferença (Economia)', valorTotal: 0, icmsAntecipado: round(totalPagoReal - totalProjetadoIdeal) },
+    ];
+  }, [fornecedoresAtivos, rascunho.summaryTable]);
 
   // monta dados para PDF (reutiliza PrintOverlay)
   const auditParaPrint = {
@@ -148,12 +177,14 @@ export function EditorRascunho({ rascunho, onFinalizar, onSalvarAlteracoes, onCl
     totalIcmsPago: round(fornecedoresAtivos.reduce((a, f) => a + f.icmsPago, 0)),
     totalIcmsProjetado: round(fornecedoresAtivos.reduce((a, f) => a + f.icmsProjetado, 0)),
     economiaTotal: economiaAtiva,
-    totalRegistros: rascunho.fornecedores.length,
+    totalRegistros: fornecedores.length,
     percentualSistematica: pct,
     regra7pctAtendida: pct !== null ? isOk : null,
     trigoQuestorTotal: questorTotal,
     trigoSelectedTotal: selectedTotal,
     trigoItens: selecionados.map(i => ({ description: i.description, supplier: i.supplier, ncm: i.ncm, value: i.value })),
+    summaryTable: summaryTableRascunho,
+    fornecedores,
   };
 
   return (
@@ -230,9 +261,14 @@ export function EditorRascunho({ rascunho, onFinalizar, onSalvarAlteracoes, onCl
             {/* Coluna esquerda: fornecedores ICMS */}
             <div className="flex-1 overflow-y-auto p-5 border-r border-slate-100">
               <div className="flex items-center justify-between mb-4">
-                <p className="text-xs font-black uppercase tracking-widest text-slate-400">
-                  Fornecedores · {fornecedoresAtivos.length} ativos
-                </p>
+                <div>
+                  <p className="text-xs font-black uppercase tracking-widest text-slate-400">
+                    Fornecedores · {fornecedoresAtivos.length} ativos
+                  </p>
+                  {descartadosCount > 0 && (
+                    <p className="text-[10px] text-slate-400 mt-0.5">{descartadosCount} descartado(s)</p>
+                  )}
+                </div>
                 <span className="text-lg font-black text-emerald-600">{fmt(economiaAtiva)}</span>
               </div>
 
@@ -253,13 +289,24 @@ export function EditorRascunho({ rascunho, onFinalizar, onSalvarAlteracoes, onCl
               </div>
 
               <div className="space-y-1.5">
-                {rascunho.fornecedores.map(f => (
-                  <div key={f.id} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border text-sm ${f.descartado ? 'opacity-40 bg-slate-50 border-slate-100' : 'bg-white border-slate-200'}`}>
+                {fornecedores.map(f => (
+                  <div key={f.id} className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border text-sm ${f.descartado ? 'opacity-50 bg-slate-50 border-slate-100' : 'bg-white border-slate-200'}`}>
                     <div className="flex-1 min-w-0">
                       <p className={`font-bold truncate text-xs ${f.descartado ? 'line-through text-slate-400' : 'text-slate-800'}`}>{f.nome}</p>
                       <p className="text-[10px] text-slate-400 truncate">{f.produto}</p>
                     </div>
                     <p className={`text-xs font-bold flex-shrink-0 ${f.descartado ? 'text-slate-300' : 'text-emerald-600'}`}>{fmt(f.economia)}</p>
+                    <button
+                      onClick={() => toggleDescartar(f.id)}
+                      title={f.descartado ? 'Restaurar' : 'Descartar'}
+                      className={`flex-shrink-0 flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-lg transition-colors ${
+                        f.descartado
+                          ? 'bg-emerald-100 text-emerald-600 hover:bg-emerald-200'
+                          : 'bg-slate-100 text-slate-400 hover:bg-red-50 hover:text-red-500'
+                      }`}
+                    >
+                      {f.descartado ? <><RotateCcw className="w-3 h-3" />Restaurar</> : <>✕ Descartar</>}
+                    </button>
                   </div>
                 ))}
               </div>
