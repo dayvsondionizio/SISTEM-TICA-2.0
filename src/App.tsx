@@ -267,11 +267,16 @@ function SimplesDashboard({ data, summaryTable, fileName, descartados, onToggleD
     const totalSimplesValor = round(ativos.reduce((a, s) => a + s.productTotal, 0));
     const totalProjetado = round(ativos.reduce((a, s) => a + s.newValue, 0));
     const totalNormalIcms = normalRow?.icmsAntecipado ?? 0;
-    // Usa o Grand Total preservado no summaryTable (inclui itens blanqueados que já foram pagos)
+    const totalNormalValor = normalRow?.valorTotal ?? 0;
+    // blankExtra = ICMS de itens blanqueados (constante, independe de descartes)
     const origPagoRow = summaryTable.find(r => r.label.includes('Real'));
-    const totalPagoReal = origPagoRow ? origPagoRow.icmsAntecipado : round(totalNormalIcms + totalSimplesIcms);
-    const totalPagoValor = origPagoRow ? origPagoRow.valorTotal : round((normalRow?.valorTotal ?? 0) + totalSimplesValor);
-    const totalProjetadoIdeal = round(totalNormalIcms + totalProjetado);
+    const fullSimplesRow = summaryTable.find(r => r.label.toUpperCase().includes('SIMPLES NACIONAL'));
+    const blankExtra = origPagoRow && fullSimplesRow
+      ? round(Math.max(0, origPagoRow.icmsAntecipado - totalNormalIcms - fullSimplesRow.icmsAntecipado))
+      : 0;
+    const totalPagoReal = round(totalNormalIcms + totalSimplesIcms + blankExtra);
+    const totalPagoValor = round(totalNormalValor + totalSimplesValor);
+    const totalProjetadoIdeal = round(totalNormalIcms + totalProjetado + blankExtra);
     return [
       ...(normalRow ? [normalRow] : []),
       { label: 'Simples Nacional', valorTotal: totalSimplesValor, icmsAntecipado: totalSimplesIcms },
@@ -1576,12 +1581,16 @@ export default function App() {
     const totalProjetado = rnd(ativos.reduce((a, s) => a + s.newValue, 0));
     const totalNormalIcms = normalRow?.icmsAntecipado ?? 0;
     const totalNormalValor = normalRow?.valorTotal ?? 0;
-    // Usa o Grand Total preservado no orig (inclui itens blanqueados que já foram pagos)
+    // blankExtra = ICMS de itens blanqueados (constante, independe de descartes)
     const origPagoRow = orig.find(r => r.label.includes('Real'));
-    const origPagoValorRow = orig.find(r => r.label.includes('Real'));
-    const totalPagoReal = origPagoRow ? origPagoRow.icmsAntecipado : rnd(totalNormalIcms + totalSimplesIcms);
-    const totalPagoValor = origPagoValorRow ? origPagoValorRow.valorTotal : rnd(totalNormalValor + totalSimplesValor);
-    const totalProjetadoIdeal = rnd(totalNormalIcms + totalProjetado);
+    const fullSimplesRow = orig.find(r => r.label.toUpperCase().includes('SIMPLES NACIONAL'));
+    const blankExtra = origPagoRow && fullSimplesRow
+      ? rnd(Math.max(0, origPagoRow.icmsAntecipado - totalNormalIcms - fullSimplesRow.icmsAntecipado))
+      : 0;
+    // Inclui blankExtra em ambos para que cancele na diferença (economia não é afetada pelo blank)
+    const totalPagoReal = rnd(totalNormalIcms + totalSimplesIcms + blankExtra);
+    const totalPagoValor = rnd(totalNormalValor + totalSimplesValor);
+    const totalProjetadoIdeal = rnd(totalNormalIcms + totalProjetado + blankExtra);
     return [
       ...(normalRow ? [normalRow] : []),
       { label: 'Simples Nacional', valorTotal: totalSimplesValor, icmsAntecipado: totalSimplesIcms },
