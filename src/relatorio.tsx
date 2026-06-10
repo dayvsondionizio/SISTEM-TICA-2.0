@@ -261,6 +261,391 @@ export function PrintableTrigoReport({ wheatPrintData }: TrigoReportProps) {
   );
 }
 
+// ─── OVERLAY MULTI-MÊS ───────────────────────────────────────────────────────
+interface PrintOverlayMultiProps {
+  auditorias: AuditoriaSalva[];
+  modo: 'icms' | 'trigo';
+  onDone: () => void;
+}
+
+export function PrintOverlayMulti({ auditorias, modo, onDone }: PrintOverlayMultiProps) {
+  const rnd = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
+
+  const sorted = [...auditorias].sort((a, b) => {
+    const toNum = (r: string) => { const [m, y] = r.split('/'); return parseInt(y||'0')*100+parseInt(m||'0'); };
+    return toNum(a.mesReferencia) - toNum(b.mesReferencia);
+  });
+
+  const empresa = sorted[0]?.nomeEmpresa ?? '';
+  const periodoInicio = sorted[0]?.mesReferencia ?? '';
+  const periodoFim = sorted[sorted.length - 1]?.mesReferencia ?? '';
+  const periodo = periodoInicio === periodoFim ? periodoInicio : `${periodoInicio} a ${periodoFim}`;
+
+  // Totais consolidados
+  const totalSimples = rnd(sorted.reduce((acc, a) => {
+    const ativos = a.fornecedores.filter(f => !f.descartado);
+    return acc + ativos.reduce((s, f) => s + f.icmsPago, 0);
+  }, 0));
+  const totalProjetado = rnd(sorted.reduce((acc, a) => {
+    const ativos = a.fornecedores.filter(f => !f.descartado);
+    return acc + ativos.reduce((s, f) => s + f.icmsProjetado, 0);
+  }, 0));
+  const totalEconomia = rnd(sorted.reduce((acc, a) => {
+    const ativos = a.fornecedores.filter(f => !f.descartado);
+    return acc + ativos.reduce((s, f) => s + f.economia, 0);
+  }, 0));
+  const totalNormal = rnd(sorted.reduce((acc, a) => {
+    const normalRow = (a.summaryTable ?? []).find(r =>
+      r.label.toUpperCase() === 'NORMAL' ||
+      (r.label.toUpperCase().includes('NORMAL') && !r.label.toUpperCase().includes('SIMPLES') && !r.label.toUpperCase().includes('PROJEÇÃO'))
+    );
+    return acc + (normalRow?.icmsAntecipado ?? 0);
+  }, 0));
+  const totalPagoReal = rnd(totalNormal + totalSimples);
+  const totalProjetadoIdeal = rnd(totalNormal + totalProjetado);
+  const totalDiff = rnd(totalPagoReal - totalProjetadoIdeal);
+
+  const MESES_NOMES = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+
+  useEffect(() => {
+    let t: ReturnType<typeof setTimeout>;
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        t = setTimeout(() => { window.print(); }, 800);
+      });
+    });
+    const handleAfterPrint = () => onDone();
+    window.addEventListener('afterprint', handleAfterPrint);
+    return () => { clearTimeout(t); window.removeEventListener('afterprint', handleAfterPrint); };
+  }, []);
+
+  const contentIcms = (
+    <div className="bg-slate-200 py-12 print:p-0 print:bg-white text-slate-900 font-sans">
+      <div className="max-w-[210mm] mx-auto space-y-12 print:space-y-0 shadow-2xl print:shadow-none">
+
+        {/* Capa */}
+        <div className="min-h-[297mm] bg-[#001F3F] text-white flex flex-col justify-between p-20 relative overflow-hidden break-after-page">
+          <div className="relative z-10 mt-40 space-y-4">
+            <h1 className="text-[90px] font-black leading-[0.85] tracking-tighter">Impacto</h1>
+            <h1 className="text-[90px] font-black leading-[0.85] tracking-tighter">Tributário</h1>
+            <h1 className="text-[90px] font-black leading-[0.85] tracking-tighter text-[#F5C000]">Consolidado</h1>
+            <p className="text-2xl font-bold mt-12 border-b-2 border-white/20 pb-4 inline-block">
+              nas Compras de Fornecedores do Simples Nacional
+            </p>
+            <p className="text-lg text-sky-300 font-bold mt-4">Período: {periodo}</p>
+          </div>
+          <div className="relative z-10 text-right">
+            <p className="text-lg font-medium text-slate-300">
+              Análise estratégica para empresa <span className="text-white font-bold">{empresa}</span>
+            </p>
+          </div>
+        </div>
+
+        {/* Introdução */}
+        <div className="min-h-[297mm] bg-white p-20 flex flex-col justify-center space-y-12 break-after-page">
+          <p className="text-2xl font-medium text-slate-700">Prezado(a) cliente,</p>
+          <div className="space-y-8 text-xl leading-relaxed text-slate-600">
+            <p>
+              Apresentamos o relatório consolidado referente ao período de <span className="font-bold text-[#001F3F]">{periodo}</span>, contemplando {sorted.length} {sorted.length === 1 ? 'mês' : 'meses'} de apuração.
+            </p>
+            <p>
+              Quando sua empresa adquire produtos tributados de ICMS de fornecedores do Simples Nacional no estado de Pernambuco, a carga tributária média do ICMS aumenta de{' '}
+              <span className="font-bold text-[#001F3F]">5,5% para 25,5%</span>, devido à sistemática de panificação à qual sua empresa é optante.
+            </p>
+            <p>
+              No período analisado, o total de ICMS gerado pelas compras do Simples Nacional foi de{' '}
+              <span className="font-bold text-[#001F3F]">{fmtBRL(totalSimples)}</span>, enquanto o valor projetado caso fossem fornecedores do Regime Normal seria de apenas{' '}
+              <span className="font-bold text-emerald-700">{fmtBRL(totalProjetado)}</span>.
+            </p>
+            <div className="bg-red-50 border-l-4 border-red-500 p-6 rounded-r-2xl">
+              <p className="text-3xl font-black text-red-600">Economia potencial total: {fmtBRL(totalDiff)}</p>
+              <p className="text-base text-slate-500 mt-2">{sorted.length} meses analisados</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Resumo por mês */}
+        <div className="min-h-[297mm] bg-white p-10 break-after-page">
+          <h2 className="text-2xl font-black text-[#001F3F] mb-6 uppercase tracking-tight">Resumo por Mês</h2>
+          <table className="w-full border-collapse text-sm">
+            <thead>
+              <tr className="bg-[#001F3F] text-white text-xs uppercase tracking-wider">
+                <th className="p-3 text-left">Mês</th>
+                <th className="p-3 text-right">ICMS Pago (Simples)</th>
+                <th className="p-3 text-right">ICMS Projetado</th>
+                <th className="p-3 text-right">Economia</th>
+                <th className="p-3 text-center">% Trigo</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sorted.map((a, idx) => {
+                const ativos = a.fornecedores.filter(f => !f.descartado);
+                const eco = rnd(ativos.reduce((s, f) => s + f.economia, 0));
+                const pago = rnd(ativos.reduce((s, f) => s + f.icmsPago, 0));
+                const proj = rnd(ativos.reduce((s, f) => s + f.icmsProjetado, 0));
+                const pct = a.percentualSistematica;
+                return (
+                  <tr key={a.id} className={idx % 2 === 0 ? 'bg-slate-50' : 'bg-white'}>
+                    <td className="p-3 font-black text-[#001F3F] border border-slate-100">{a.mesReferencia}</td>
+                    <td className="p-3 text-right border border-slate-100 text-red-600 font-bold">{fmtBRL(pago)}</td>
+                    <td className="p-3 text-right border border-slate-100 text-blue-600 font-bold">{fmtBRL(proj)}</td>
+                    <td className="p-3 text-right border border-slate-100 text-emerald-600 font-black">{fmtBRL(eco)}</td>
+                    <td className="p-3 text-center border border-slate-100">
+                      {pct !== null && pct !== undefined
+                        ? <span className={`text-xs font-black px-2 py-0.5 rounded-full ${pct >= 7 ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                            🌾 {pct.toFixed(2).replace('.', ',')}%
+                          </span>
+                        : <span className="text-slate-300">—</span>}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+            <tfoot>
+              <tr className="bg-[#001F3F] text-white font-black text-sm">
+                <td className="p-3">TOTAL</td>
+                <td className="p-3 text-right">{fmtBRL(totalSimples)}</td>
+                <td className="p-3 text-right">{fmtBRL(totalProjetado)}</td>
+                <td className="p-3 text-right text-[#F5C000]">{fmtBRL(totalEconomia)}</td>
+                <td className="p-3 text-center">—</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+
+        {/* Detalhe por mês */}
+        {sorted.map(a => {
+          const ativos = a.fornecedores.filter(f => !f.descartado);
+          const data: SimplesSupplierData[] = ativos.map(f => ({
+            name: f.nome, productName: f.produto, productTotal: f.valorTotal,
+            originalValue: f.icmsPago, newValue: f.icmsProjetado, economy: f.economia,
+          }));
+          return (
+            <div key={a.id} className="bg-white p-10 break-after-page">
+              <div className="flex items-center gap-3 mb-5">
+                <div className="bg-[#001F3F] text-white text-xs font-black px-4 py-2 rounded-xl uppercase tracking-wider">
+                  {MESES_NOMES[parseInt(a.mesReferencia.split('/')[0]||'1')-1]}/{a.mesReferencia.split('/')[1]?.slice(2)}
+                </div>
+                <h2 className="text-lg font-black text-[#001F3F] uppercase">{a.mesReferencia} — Fornecedores do Simples Nacional</h2>
+                {a.percentualSistematica !== null && a.percentualSistematica !== undefined && (
+                  <span className={`text-xs font-black px-3 py-1 rounded-full ${a.regra7pctAtendida ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                    🌾 {a.percentualSistematica.toFixed(2).replace('.', ',')}%
+                  </span>
+                )}
+              </div>
+              <table className="w-full border-collapse text-[10px]">
+                <thead>
+                  <tr className="bg-[#334155] text-white">
+                    <th className="p-3 text-left border border-slate-200">Fornecedor</th>
+                    <th className="p-3 text-left border border-slate-200">Produto</th>
+                    <th className="p-3 text-right border border-slate-200">Valor Total</th>
+                    <th className="p-3 text-right border border-slate-200">ICMS Pago</th>
+                    <th className="p-3 text-right border border-slate-200">ICMS Projetado</th>
+                    <th className="p-3 text-right border border-slate-200">Economia</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.map((item, idx) => (
+                    <tr key={idx} className={idx % 2 === 0 ? 'bg-slate-50' : 'bg-white'}>
+                      <td className="p-3 border border-slate-200 font-bold">{item.name}</td>
+                      <td className="p-3 border border-slate-200">{item.productName}</td>
+                      <td className="p-3 border border-slate-200 text-right">{fmtBRL(item.productTotal)}</td>
+                      <td className="p-3 border border-slate-200 text-right bg-red-50 text-red-700 font-bold">{fmtBRL(item.originalValue)}</td>
+                      <td className="p-3 border border-slate-200 text-right bg-emerald-50 text-emerald-700 font-bold">{fmtBRL(item.newValue)}</td>
+                      <td className="p-3 border border-slate-200 text-right font-bold">{fmtBRL(item.economy)}</td>
+                    </tr>
+                  ))}
+                  <tr className="bg-slate-100 font-black text-xs">
+                    <td colSpan={2} className="p-3 border border-slate-200 text-right uppercase">Total {a.mesReferencia}</td>
+                    <td className="p-3 border border-slate-200 text-right">{fmtBRL(data.reduce((s,i)=>s+i.productTotal,0))}</td>
+                    <td className="p-3 border border-slate-200 text-right">{fmtBRL(data.reduce((s,i)=>s+i.originalValue,0))}</td>
+                    <td className="p-3 border border-slate-200 text-right">{fmtBRL(data.reduce((s,i)=>s+i.newValue,0))}</td>
+                    <td className="p-3 border border-slate-200 text-right">{fmtBRL(data.reduce((s,i)=>s+i.economy,0))}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          );
+        })}
+
+        {/* Conclusão consolidada */}
+        <div className="min-h-[297mm] bg-white px-20 py-10 flex flex-col justify-center space-y-8 break-after-page">
+          <h2 className="text-3xl font-black text-[#001F3F] uppercase tracking-tight">Conclusão do Período</h2>
+          <div className="space-y-6 text-xl leading-relaxed text-slate-600">
+            <p>
+              No período de <span className="font-bold text-[#001F3F]">{periodo}</span>, ao adquirir produtos tributados de ICMS de fornecedores do Simples Nacional, o total de ICMS gerado foi de{' '}
+              <span className="font-bold text-slate-900">{fmtBRL(totalSimples)}</span>.
+            </p>
+            <p>
+              Se os mesmos produtos tivessem sido adquiridos de fornecedores do Regime Normal, o ICMS seria de apenas{' '}
+              <span className="font-bold text-slate-900">{fmtBRL(totalProjetado)}</span>.
+            </p>
+            <p className="text-3xl font-black text-red-600">
+              Diferença acumulada no período: {fmtBRL(totalDiff)}
+            </p>
+            <p>
+              Considerando o cenário global, o valor total de ICMS pago foi de{' '}
+              <span className="font-bold text-slate-900">{fmtBRL(totalPagoReal)}</span>, enquanto o valor ideal projetado seria de{' '}
+              <span className="font-bold text-slate-900">{fmtBRL(totalProjetadoIdeal)}</span>.
+            </p>
+            <p>
+              Recomendamos a análise dos fornecedores listados e a busca por condições comerciais mais favoráveis, como descontos financeiros ou migração para fornecedores do Regime Normal.
+            </p>
+          </div>
+        </div>
+
+        {/* Encerramento */}
+        <div className="min-h-[297mm] bg-white p-20 flex flex-col justify-center space-y-12">
+          <div className="space-y-8 text-xl leading-relaxed text-slate-600">
+            <p>Caso necessite de suporte adicional, estamos à disposição para fornecer orientações personalizadas e auxiliá-lo(a) na busca por soluções que otimizem sua gestão financeira.</p>
+            <p>Agradecemos pela confiança em nossos serviços e estamos comprometidos em ajudá-lo(a) a alcançar a eficiência tributária e a lucratividade sustentável em seu negócio.</p>
+            <div className="pt-20"><p>Atenciosamente,</p></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  );
+
+  const contentTrigo = (
+    <div className="print:block p-10 bg-white min-h-screen text-slate-800">
+      <div className="max-w-[210mm] mx-auto space-y-16">
+
+        {/* Cabeçalho */}
+        <div className="border-b-4 border-amber-600 pb-6 flex items-center gap-4">
+          <span className="text-5xl">🌾</span>
+          <div>
+            <h1 className="text-3xl font-black text-slate-900 tracking-tight">Validação Técnica — Sistemática de Panificação</h1>
+            <p className="text-base text-slate-500 font-medium">Relatório consolidado · Período: {periodo} · {sorted.length} meses</p>
+          </div>
+        </div>
+
+        {/* Tabela resumo por mês */}
+        <div>
+          <h2 className="text-xl font-black text-[#001F3F] mb-4 uppercase tracking-tight">Resumo por Mês</h2>
+          <table className="w-full border-collapse text-sm">
+            <thead>
+              <tr className="bg-[#001F3F] text-white text-xs uppercase tracking-wider">
+                <th className="p-3 text-left">Mês</th>
+                <th className="p-3 text-right">Total Compras</th>
+                <th className="p-3 text-right">Trigo Validado</th>
+                <th className="p-3 text-right">% Trigo</th>
+                <th className="p-3 text-center">Regra 7%</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sorted.map((a, idx) => {
+                const pct = a.percentualSistematica;
+                const ok = a.regra7pctAtendida;
+                const temTrigo = a.trigoItens && a.trigoItens.length > 0;
+                return (
+                  <tr key={a.id} className={idx % 2 === 0 ? 'bg-slate-50' : 'bg-white'}>
+                    <td className="p-3 font-black text-[#001F3F] border border-slate-100">{a.mesReferencia}</td>
+                    <td className="p-3 text-right border border-slate-100 font-bold">
+                      {a.trigoQuestorTotal ? fmtBRL(a.trigoQuestorTotal) : <span className="text-slate-300">—</span>}
+                    </td>
+                    <td className="p-3 text-right border border-slate-100 font-bold text-amber-700">
+                      {temTrigo ? fmtBRL(a.trigoSelectedTotal ?? 0) : <span className="text-slate-300">—</span>}
+                    </td>
+                    <td className="p-3 text-right border border-slate-100">
+                      {pct !== null && pct !== undefined
+                        ? <span className={`text-xs font-black px-2 py-0.5 rounded-full ${pct >= 7 ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                            {pct.toFixed(2).replace('.', ',')}%
+                          </span>
+                        : <span className="text-slate-300">—</span>}
+                    </td>
+                    <td className="p-3 text-center border border-slate-100 font-black">
+                      {ok !== null && ok !== undefined
+                        ? <span className={ok ? 'text-emerald-600' : 'text-red-600'}>{ok ? '✓ Aprovado' : '✗ Reprovado'}</span>
+                        : <span className="text-slate-300">—</span>}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Detalhe por mês */}
+        {sorted.map(a => {
+          const itens = a.trigoItens ?? [];
+          if (itens.length === 0) return null;
+          return (
+            <div key={a.id} className="break-inside-avoid">
+              <div className="flex items-center gap-3 mb-3">
+                <h3 className="text-lg font-black text-[#001F3F] uppercase">{a.mesReferencia}</h3>
+                {a.percentualSistematica !== null && a.percentualSistematica !== undefined && (
+                  <span className={`text-sm font-black px-3 py-1 rounded-full ${a.regra7pctAtendida ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                    🌾 {a.percentualSistematica.toFixed(2).replace('.', ',')}% {a.regra7pctAtendida ? '— APROVADO' : '— REPROVADO'}
+                  </span>
+                )}
+              </div>
+              <div className="flex gap-4 mb-4">
+                <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex-1 text-center">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Total Compras</p>
+                  <p className="text-xl font-black text-slate-800">{a.trigoQuestorTotal ? fmtBRL(a.trigoQuestorTotal) : '—'}</p>
+                </div>
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex-1 text-center">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-amber-600">Trigo Validado</p>
+                  <p className="text-xl font-black text-amber-700">{fmtBRL(a.trigoSelectedTotal ?? 0)}</p>
+                </div>
+              </div>
+              <table className="w-full text-left text-xs border-collapse border border-slate-200">
+                <thead>
+                  <tr className="bg-slate-100 text-slate-500 uppercase tracking-wider text-[10px] font-bold">
+                    <th className="p-3 border-b">Produto</th>
+                    <th className="p-3 border-b">Fornecedor</th>
+                    <th className="p-3 border-b text-right">Valor</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {itens.map((item, i) => (
+                    <tr key={i} className="border-b hover:bg-slate-50">
+                      <td className="p-3 font-bold text-slate-800">
+                        {item.description}
+                        {item.ncm && <span className="font-normal text-slate-400 ml-2">NCM: {item.ncm}</span>}
+                      </td>
+                      <td className="p-3 text-slate-500">{item.supplier}</td>
+                      <td className="p-3 text-right font-mono font-bold">{fmtBRL(item.value)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          );
+        })}
+
+        <div className="mt-20 text-center text-xs text-slate-400 uppercase tracking-widest border-t border-slate-200 pt-6">
+          Relatório gerado em {new Date().toLocaleString('pt-BR')} · Empresa: {empresa} · Período: {periodo}
+        </div>
+      </div>
+    </div>
+  );
+
+  const content = (
+    <>
+      <style>{`
+        @media print {
+          body > *:not(#print-overlay-root) { display: none !important; }
+          #print-overlay-root { display: block !important; position: static !important; overflow: visible !important; }
+        }
+      `}</style>
+      <div id="print-overlay-root" style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'white', overflowY: 'auto' }}>
+        <button
+          onClick={onDone}
+          className="print:hidden"
+          style={{ position: 'fixed', top: 16, right: 16, zIndex: 10000, background: '#1e293b', color: 'white', fontSize: 12, fontWeight: 700, padding: '8px 16px', borderRadius: 12, border: 'none', cursor: 'pointer' }}
+        >
+          ✕ Fechar prévia
+        </button>
+        {modo === 'icms' ? contentIcms : contentTrigo}
+      </div>
+    </>
+  );
+
+  return createPortal(content, document.body);
+}
+
 // ─── OVERLAY DE IMPRESSÃO (usado no DetalheAuditoria) ────────────────────────
 interface PrintOverlayProps {
   auditoria: AuditoriaSalva;

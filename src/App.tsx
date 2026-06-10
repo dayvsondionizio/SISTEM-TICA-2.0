@@ -35,7 +35,7 @@ import {
 } from 'lucide-react';
 import { ModalSalvar, TelaHistorico, DetalheAuditoria, type AuditoriaSalva, type FornecedorSalvo } from './historico';
 import { TelaPainelGeral } from './painel';
-import { PrintOverlay } from './relatorio';
+import { PrintOverlay, PrintOverlayMulti } from './relatorio';
 import { salvarAuditoria, carregarClientes, carregarHistorico, excluirAuditoria, salvarRascunho, carregarRascunhos, excluirRascunho, type Cliente, type RascunhoAuditoria, type BakeryItemSalvo } from './storage';
 import { groqChat } from './groqClient';
 import { ModalSalvarRascunho, EditorRascunho, CardRascunho } from './rascunho';
@@ -1000,6 +1000,10 @@ function DashboardCliente({ cliente, onNovaApuracao, onVoltar, onFinalizarRascun
   const [dropdownDownloadId, setDropdownDownloadId] = useState<string | null>(null);
   const [printCardAuditoria, setPrintCardAuditoria] = useState<AuditoriaSalva | null>(null);
   const [printCardModo, setPrintCardModo] = useState<'icms' | 'trigo'>('icms');
+  const [modoSelecao, setModoSelecao] = useState(false);
+  const [selecionados, setSelecionados] = useState<Set<string>>(new Set());
+  const [printMultiList, setPrintMultiList] = useState<AuditoriaSalva[] | null>(null);
+  const [printMultiModo, setPrintMultiModo] = useState<'icms' | 'trigo'>('icms');
 
   const recarregar = () => {
     carregarHistorico().then(all => setAuditorias(all.filter(a => a.nomeEmpresa === cliente.nome)));
@@ -1028,6 +1032,62 @@ function DashboardCliente({ cliente, onNovaApuracao, onVoltar, onFinalizarRascun
     const link = document.createElement('a');
     link.href = url;
     link.download = `AUDITORIA_${cliente.nome.replace(/\s+/g,'_')}_${auditoria.mesReferencia.replace('/','_')}.xlsx`;
+    document.body.appendChild(link); link.click();
+    setTimeout(() => { document.body.removeChild(link); URL.revokeObjectURL(url); }, 100);
+  };
+
+  const downloadExcelMulti = (lista: AuditoriaSalva[]) => {
+    const wb = XLSX.utils.book_new();
+    const sorted = [...lista].sort((a, b) => {
+      const toNum = (r: string) => { const [m, y] = r.split('/'); return parseInt(y||'0')*100+parseInt(m||'0'); };
+      return toNum(a.mesReferencia) - toNum(b.mesReferencia);
+    });
+    // Aba Resumo
+    const resumoRows: any[][] = [
+      ['Mês', 'ICMS Pago (Simples)', 'ICMS Projetado', 'Economia', '% Trigo', 'Regra 7%', 'Fornecedores Ativos'],
+      ...sorted.map(a => {
+        const ativos = a.fornecedores.filter(f => !f.descartado);
+        return [
+          a.mesReferencia,
+          round(ativos.reduce((s,f)=>s+f.icmsPago,0)),
+          round(ativos.reduce((s,f)=>s+f.icmsProjetado,0)),
+          round(ativos.reduce((s,f)=>s+f.economia,0)),
+          a.percentualSistematica !== null && a.percentualSistematica !== undefined ? a.percentualSistematica : '—',
+          a.regra7pctAtendida !== null && a.regra7pctAtendida !== undefined ? (a.regra7pctAtendida ? 'Aprovado' : 'Reprovado') : '—',
+          ativos.length,
+        ];
+      }),
+      [],
+      ['TOTAL', '', '',
+        round(sorted.reduce((acc,a)=>acc+a.fornecedores.filter(f=>!f.descartado).reduce((s,f)=>s+f.economia,0),0)),
+        '','',''],
+    ];
+    const wsResumo = XLSX.utils.aoa_to_sheet(resumoRows);
+    wsResumo['!cols'] = [{wch:12},{wch:20},{wch:18},{wch:16},{wch:10},{wch:12},{wch:18}];
+    XLSX.utils.book_append_sheet(wb, wsResumo, 'Resumo');
+    // Uma aba por mês
+    sorted.forEach(a => {
+      const ativos = a.fornecedores.filter(f => !f.descartado);
+      const rows: any[][] = [
+        ['Fornecedor', 'Produto', 'Valor Total', 'ICMS Pago', 'ICMS Projetado', 'Economia'],
+        ...ativos.map(f => [f.nome, f.produto, f.valorTotal, f.icmsPago, f.icmsProjetado, f.economia]),
+        [],
+        ['TOTAL','', ativos.reduce((s,f)=>s+f.valorTotal,0), ativos.reduce((s,f)=>s+f.icmsPago,0), ativos.reduce((s,f)=>s+f.icmsProjetado,0), ativos.reduce((s,f)=>s+f.economia,0)],
+      ];
+      const ws = XLSX.utils.aoa_to_sheet(rows);
+      ws['!cols'] = [{wch:40},{wch:40},{wch:16},{wch:16},{wch:18},{wch:16}];
+      const nomeMes = a.mesReferencia.replace('/', '-');
+      XLSX.utils.book_append_sheet(wb, ws, nomeMes.length > 31 ? nomeMes.slice(0,31) : nomeMes);
+    });
+    const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'binary' });
+    const s2ab = (s: string) => { const buf = new ArrayBuffer(s.length); const view = new Uint8Array(buf); for (let i=0;i<s.length;++i) view[i]=s.charCodeAt(i)&0xFF; return buf; };
+    const blob = new Blob([s2ab(wbout)], { type: 'application/octet-stream' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    const periodoInicio = sorted[0]?.mesReferencia.replace('/','_') ?? '';
+    const periodoFim = sorted[sorted.length-1]?.mesReferencia.replace('/','_') ?? '';
+    link.download = `CONSOLIDADO_${cliente.nome.replace(/\s+/g,'_')}_${periodoInicio}_${periodoFim}.xlsx`;
     document.body.appendChild(link); link.click();
     setTimeout(() => { document.body.removeChild(link); URL.revokeObjectURL(url); }, 100);
   };
@@ -1128,9 +1188,28 @@ function DashboardCliente({ cliente, onNovaApuracao, onVoltar, onFinalizarRascun
                 )}
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-lg font-black text-slate-800 uppercase tracking-tight">Apurações Anteriores</h3>
-                  {auditorias.length > 0 && (
-                    <span className="text-xs bg-slate-100 text-slate-500 font-bold px-3 py-1 rounded-full">{auditoriasFiltradas.length} registro{auditoriasFiltradas.length !== 1 ? 's' : ''}</span>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {auditorias.length >= 2 && !modoSelecao && (
+                      <button
+                        onClick={() => { setModoSelecao(true); setSelecionados(new Set()); }}
+                        className="flex items-center gap-1.5 text-xs font-bold bg-[#001F3F]/8 hover:bg-[#001F3F] hover:text-white border border-[#001F3F]/20 hover:border-[#001F3F] text-[#001F3F] px-3 py-1.5 rounded-xl transition-all"
+                      >
+                        <BarChart2 className="w-3.5 h-3.5" />
+                        Relatório de Período
+                      </button>
+                    )}
+                    {modoSelecao && (
+                      <button
+                        onClick={() => { setModoSelecao(false); setSelecionados(new Set()); }}
+                        className="text-xs font-bold text-slate-400 hover:text-slate-700 px-3 py-1.5 rounded-xl hover:bg-slate-100 transition-all"
+                      >
+                        Cancelar seleção
+                      </button>
+                    )}
+                    {auditorias.length > 0 && (
+                      <span className="text-xs bg-slate-100 text-slate-500 font-bold px-3 py-1 rounded-full">{auditoriasFiltradas.length} registro{auditoriasFiltradas.length !== 1 ? 's' : ''}</span>
+                    )}
+                  </div>
                 </div>
               </>
             );
@@ -1154,8 +1233,29 @@ function DashboardCliente({ cliente, onNovaApuracao, onVoltar, onFinalizarRascun
               {auditoriasFiltradas.map(a => {
                 const ativos = a.fornecedores.filter(f => !f.descartado);
                 const economiaAtiva = round(ativos.reduce((acc, f) => acc + f.economia, 0));
+                const estaSelecionado = selecionados.has(a.id);
                 return (
-                  <div key={a.id} className="bg-white border border-slate-200 rounded-2xl p-5 flex items-center gap-5 hover:border-[#001F3F]/30 hover:shadow-sm transition-all">
+                  <div
+                    key={a.id}
+                    className={`bg-white border rounded-2xl p-5 flex items-center gap-5 transition-all cursor-default ${
+                      modoSelecao
+                        ? estaSelecionado
+                          ? 'border-[#001F3F] shadow-md ring-2 ring-[#001F3F]/20'
+                          : 'border-slate-200 hover:border-[#001F3F]/40 cursor-pointer'
+                        : 'border-slate-200 hover:border-[#001F3F]/30 hover:shadow-sm'
+                    }`}
+                    onClick={modoSelecao ? () => setSelecionados(prev => {
+                      const next = new Set(prev);
+                      if (next.has(a.id)) next.delete(a.id); else next.add(a.id);
+                      return next;
+                    }) : undefined}
+                  >
+                    {/* Checkbox seleção */}
+                    {modoSelecao && (
+                      <div className={`flex-shrink-0 w-6 h-6 rounded-full border-2 transition-all flex items-center justify-center ${estaSelecionado ? 'bg-[#001F3F] border-[#001F3F]' : 'border-slate-300'}`}>
+                        {estaSelecionado && <span className="text-white text-xs font-black">✓</span>}
+                      </div>
+                    )}
                     {/* Mês */}
                     <div className="bg-[#001F3F]/5 rounded-2xl px-5 py-4 flex-shrink-0 text-center min-w-[90px]">
                       <p className="text-xs font-black text-[#001F3F]/60 uppercase tracking-widest leading-none mb-1">{a.mesReferencia.split('/')[1]}</p>
@@ -1194,7 +1294,7 @@ function DashboardCliente({ cliente, onNovaApuracao, onVoltar, onFinalizarRascun
                     </div>
 
                     {/* Ações */}
-                    <div className="flex items-center gap-2 flex-shrink-0" onClick={e => e.stopPropagation()}>
+                    <div className={`flex items-center gap-2 flex-shrink-0 ${modoSelecao ? 'hidden' : ''}`} onClick={e => e.stopPropagation()}>
                       <button
                         onClick={() => setAuditoriaSelecionada(a)}
                         className="flex items-center gap-1.5 bg-[#001F3F] hover:bg-[#002d5c] text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-colors"
@@ -1258,8 +1358,59 @@ function DashboardCliente({ cliente, onNovaApuracao, onVoltar, onFinalizarRascun
         </div>
       </main>
 
+      {/* Barra flutuante de seleção múltipla */}
+      {modoSelecao && (
+        <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-50 transition-all duration-300 ${selecionados.size > 0 ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}>
+          <div className="bg-[#001F3F] text-white rounded-2xl shadow-2xl shadow-[#001F3F]/40 px-5 py-4 flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <span className="bg-[#F5C000] text-[#001F3F] text-xs font-black w-6 h-6 rounded-full flex items-center justify-center">{selecionados.size}</span>
+              <span className="text-sm font-bold text-white/80">{selecionados.size === 1 ? 'mês selecionado' : 'meses selecionados'}</span>
+            </div>
+            <div className="w-px h-6 bg-white/20" />
+            <button
+              onClick={() => {
+                const lista = auditorias.filter(a => selecionados.has(a.id));
+                setPrintMultiModo('icms');
+                setPrintMultiList(lista);
+              }}
+              className="flex items-center gap-1.5 bg-sky-500 hover:bg-sky-400 text-white text-xs font-bold px-3 py-2 rounded-xl transition-colors"
+            >
+              <FileText className="w-3.5 h-3.5" />PDF ICMS
+            </button>
+            {auditorias.filter(a => selecionados.has(a.id)).some(a => a.trigoItens && a.trigoItens.length > 0) && (
+              <button
+                onClick={() => {
+                  const lista = auditorias.filter(a => selecionados.has(a.id));
+                  setPrintMultiModo('trigo');
+                  setPrintMultiList(lista);
+                }}
+                className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-white text-xs font-bold px-3 py-2 rounded-xl transition-colors"
+              >
+                <Wheat className="w-3.5 h-3.5" />PDF Trigo
+              </button>
+            )}
+            <button
+              onClick={() => {
+                const lista = auditorias.filter(a => selecionados.has(a.id));
+                downloadExcelMulti(lista);
+              }}
+              className="flex items-center gap-1.5 bg-emerald-500 hover:bg-emerald-400 text-white text-xs font-bold px-3 py-2 rounded-xl transition-colors"
+            >
+              <Download className="w-3.5 h-3.5" />Excel
+            </button>
+            <button
+              onClick={() => { setModoSelecao(false); setSelecionados(new Set()); }}
+              className="text-white/50 hover:text-white text-xs font-bold px-2 py-2 rounded-xl hover:bg-white/10 transition-colors"
+            >✕</button>
+          </div>
+        </div>
+      )}
+
       {printCardAuditoria && (
         <PrintOverlay auditoria={printCardAuditoria} modo={printCardModo} onDone={() => setPrintCardAuditoria(null)} />
+      )}
+      {printMultiList && (
+        <PrintOverlayMulti auditorias={printMultiList} modo={printMultiModo} onDone={() => setPrintMultiList(null)} />
       )}
       {auditoriaSelecionada && (
         <DetalheAuditoria
