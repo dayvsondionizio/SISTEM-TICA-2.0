@@ -35,9 +35,7 @@ export function PrintableIcmsReport({ data, summaryTable, fileName, wheatPrintDa
     (r.label.toUpperCase().includes('NORMAL') && !r.label.toUpperCase().includes('SIMPLES') && !r.label.toUpperCase().includes('PROJEÇÃO'))
   )?.icmsAntecipado || 0);
   const totalProjected  = round(summaryTable.find(r => r.label.includes('Projeção (Normal)'))?.icmsAntecipado || 0);
-  // Lê o total pago direto do summaryTable (já corrigido com Grand Total do pivot)
-  const pagoRow = summaryTable.find(r => r.label.includes('Real'));
-  const totalPagoReal   = pagoRow ? round(pagoRow.icmsAntecipado) : round(totalNormal + totalSimples);
+  const totalPagoReal   = round(totalNormal + totalSimples);
   const totalProjetadoIdeal = round(totalNormal + totalProjected);
   const totalDiff       = round(totalPagoReal - totalProjetadoIdeal);
 
@@ -685,10 +683,8 @@ export function PrintOverlay({ auditoria, modo, onDone }: PrintOverlayProps) {
   const totalProjetadoAtivo = rnd(ativos.reduce((a, f) => a + f.icmsProjetado, 0));
   const totalNormalIcms = normalRow?.icmsAntecipado ?? 0;
   const totalNormalValor = normalRow?.valorTotal ?? 0;
-  // Usa o Grand Total salvo na auditoria (inclui itens blanqueados que já foram pagos)
-  const origPagoRow = originalTable.find(r => r.label.includes('Real'));
-  const totalPagoReal = origPagoRow ? origPagoRow.icmsAntecipado : rnd(totalNormalIcms + totalSimplesAtivo);
-  const totalPagoValor = origPagoRow ? origPagoRow.valorTotal : rnd(totalNormalValor + totalSimplesValor);
+  const totalPagoReal = rnd(totalNormalIcms + totalSimplesAtivo);
+  const totalPagoValor = rnd(totalNormalValor + totalSimplesValor);
   const totalProjetadoIdeal = rnd(totalNormalIcms + totalProjetadoAtivo);
 
   const summaryTable: SummaryRowSalvo[] = [
