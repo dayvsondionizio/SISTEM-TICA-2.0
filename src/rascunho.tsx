@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   X, Save, Clock, Edit3, Trash2, ChevronRight, Check,
-  Calendar, FileText, AlertTriangle, Wheat, CheckCircle2, XCircle, Lock, Unlock, RotateCcw,
+  Calendar, FileText, AlertTriangle, Wheat, CheckCircle2, XCircle, Lock, Unlock, RotateCcw, Sparkles, Loader2,
 } from 'lucide-react';
 import {
   type RascunhoAuditoria,
@@ -11,6 +11,7 @@ import {
   excluirRascunho,
 } from './storage';
 import { PrintOverlay } from './relatorio';
+import { groqChat } from './groqClient';
 
 const fmt = (v: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
@@ -119,9 +120,49 @@ export function EditorRascunho({ rascunho, onFinalizar, onSalvarAlteracoes, onCl
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [isConfirmed, setIsConfirmed] = useState(false);
 
+  const [iaAnalisando, setIaAnalisando] = useState(false);
+  const [iaAviso, setIaAviso] = useState<string | null>(null);
+
   const toggleItem = (idx: number) => {
     if (isConfirmed) return;
     setItems(prev => prev.map((it, i) => i === idx ? { ...it, selected: !it.selected } : it));
+  };
+
+  const classificarComIA = async () => {
+    if (items.length === 0 || isConfirmed) return;
+    setIaAnalisando(true);
+    setIaAviso(null);
+    try {
+      const productList = items.map((p, idx) =>
+        `${idx}: ${p.description}${p.ncm ? ` [NCM: ${p.ncm}]` : ''} - Fornecedor: ${p.supplier}`
+      ).join('\n');
+      const prompt = `Você é um auditor fiscal especializado em panificação. Avalie cada item e recomende se deve ou não ser contado na sistemática de panificação (regra dos 7%).\n\nContar: farinhas de trigo, pré-misturas, semolina, trigo em grão.\nNão contar: itens que não são insumo de panificação.\n\nResponda SOMENTE com JSON array:\n[{"index":0,"shouldCount":true,"confidence":"high","reason":"..."},...]\n\nProdutos:\n${productList}`;
+      const response = await groqChat({
+        model: 'llama-3.3-70b-versatile',
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0,
+        max_tokens: 2000,
+      });
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error?.message || 'Erro Groq');
+      }
+      const data = await response.json();
+      const text = data.choices[0].message.content.trim();
+      const jsonMatch = text.match(/\[.*\]/s);
+      if (jsonMatch) {
+        const results: { index: number; shouldCount: boolean; confidence: string }[] = JSON.parse(jsonMatch[0]);
+        setItems(prev => prev.map((it, i) => {
+          const r = results.find(r => r.index === i);
+          return r ? { ...it, selected: r.shouldCount, aiConfidence: r.confidence as any } : it;
+        }));
+        setIaAviso('✓ IA classificou os itens. Revise e confirme.');
+      }
+    } catch (err) {
+      setIaAviso('⚠️ IA indisponível. Tente novamente mais tarde.');
+    } finally {
+      setIaAnalisando(false);
+    }
   };
 
   const toggleDescartar = (id: string) => {
@@ -319,7 +360,7 @@ export function EditorRascunho({ rascunho, onFinalizar, onSalvarAlteracoes, onCl
 
             {/* Coluna direita: itens de trigo */}
             <div className="w-[420px] flex-shrink-0 overflow-y-auto p-5">
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center justify-between mb-3">
                 <p className="text-xs font-black uppercase tracking-widest text-slate-400">
                   Sistemática · {selecionados.length} selecionados
                 </p>
@@ -329,6 +370,25 @@ export function EditorRascunho({ rascunho, onFinalizar, onSalvarAlteracoes, onCl
                   </span>
                 )}
               </div>
+
+              {/* Botão classificar com IA */}
+              {items.length > 0 && !isConfirmed && (
+                <button
+                  onClick={classificarComIA}
+                  disabled={iaAnalisando}
+                  className="w-full mb-3 flex items-center justify-center gap-2 bg-violet-600 hover:bg-violet-700 disabled:opacity-60 disabled:cursor-not-allowed text-white text-xs font-bold py-2.5 rounded-xl transition-colors"
+                >
+                  {iaAnalisando
+                    ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />Analisando com IA...</>
+                    : <><Sparkles className="w-3.5 h-3.5" />Classificar com IA</>
+                  }
+                </button>
+              )}
+              {iaAviso && (
+                <div className={`text-xs font-bold px-3 py-2 rounded-lg mb-3 ${iaAviso.startsWith('✓') ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
+                  {iaAviso}
+                </div>
+              )}
 
               {questorTotal && (
                 <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-4 flex items-center justify-between">
