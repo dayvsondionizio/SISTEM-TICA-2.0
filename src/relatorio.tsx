@@ -527,6 +527,7 @@ export function PrintOverlayMulti({ auditorias, modo, onDone }: PrintOverlayMult
           <span className="text-5xl">🌾</span>
           <div>
             <h1 className="text-3xl font-black text-slate-900 tracking-tight">Validação Técnica — Sistemática de Panificação</h1>
+            <p className="text-lg font-black text-[#001F3F] mt-1">{empresa}</p>
             <p className="text-base text-slate-500 font-medium">Relatório consolidado · Período: {periodo} · {sorted.length} meses</p>
           </div>
         </div>
