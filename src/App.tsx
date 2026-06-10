@@ -268,15 +268,15 @@ function SimplesDashboard({ data, summaryTable, fileName, descartados, onToggleD
     const totalProjetado = round(ativos.reduce((a, s) => a + s.newValue, 0));
     const totalNormalIcms = normalRow?.icmsAntecipado ?? 0;
     const totalNormalValor = normalRow?.valorTotal ?? 0;
-    // blankExtra = ICMS de itens blanqueados (constante, independe de descartes)
+    // Total pago real = Grand Total do pivot (fixo)
     const origPagoRow = summaryTable.find(r => r.label.includes('Real'));
-    const fullSimplesRow = summaryTable.find(r => r.label.toUpperCase().includes('SIMPLES NACIONAL'));
-    const blankExtra = origPagoRow && fullSimplesRow
-      ? round(Math.max(0, origPagoRow.icmsAntecipado - totalNormalIcms - fullSimplesRow.icmsAntecipado))
-      : 0;
-    const totalPagoReal = round(totalNormalIcms + totalSimplesIcms + blankExtra);
-    const totalPagoValor = round(totalNormalValor + totalSimplesValor);
-    const totalProjetadoIdeal = round(totalNormalIcms + totalProjetado + blankExtra);
+    const origProjetadoRow = summaryTable.find(r => r.label.includes('Ideal'));
+    const totalPagoReal = origPagoRow ? origPagoRow.icmsAntecipado : round(totalNormalIcms + totalSimplesIcms);
+    const totalPagoValor = origPagoRow ? origPagoRow.valorTotal : round(totalNormalValor + totalSimplesValor);
+    // Descartados ficam no cenário ideal com ICMS original (analista mantém esses fornecedores)
+    const discardedIcms = round(data.filter((_, i) => descartados.has(i)).reduce((a, s) => a + s.originalValue, 0));
+    const baseProjetado = origProjetadoRow ? origProjetadoRow.icmsAntecipado : round(totalNormalIcms + totalProjetado);
+    const totalProjetadoIdeal = round(baseProjetado + discardedIcms);
     return [
       ...(normalRow ? [normalRow] : []),
       { label: 'Simples Nacional', valorTotal: totalSimplesValor, icmsAntecipado: totalSimplesIcms },
@@ -1581,16 +1581,17 @@ export default function App() {
     const totalProjetado = rnd(ativos.reduce((a, s) => a + s.newValue, 0));
     const totalNormalIcms = normalRow?.icmsAntecipado ?? 0;
     const totalNormalValor = normalRow?.valorTotal ?? 0;
-    // blankExtra = ICMS de itens blanqueados (constante, independe de descartes)
+    // Total pago real = Grand Total do pivot (fixo — é o que o cliente efetivamente pagou)
     const origPagoRow = orig.find(r => r.label.includes('Real'));
-    const fullSimplesRow = orig.find(r => r.label.toUpperCase().includes('SIMPLES NACIONAL'));
-    const blankExtra = origPagoRow && fullSimplesRow
-      ? rnd(Math.max(0, origPagoRow.icmsAntecipado - totalNormalIcms - fullSimplesRow.icmsAntecipado))
-      : 0;
-    // Inclui blankExtra em ambos para que cancele na diferença (economia não é afetada pelo blank)
-    const totalPagoReal = rnd(totalNormalIcms + totalSimplesIcms + blankExtra);
-    const totalPagoValor = rnd(totalNormalValor + totalSimplesValor);
-    const totalProjetadoIdeal = rnd(totalNormalIcms + totalProjetado + blankExtra);
+    const origProjetadoRow = orig.find(r => r.label.includes('Ideal'));
+    const totalPagoReal = origPagoRow ? origPagoRow.icmsAntecipado : rnd(totalNormalIcms + totalSimplesIcms);
+    const totalPagoValor = origPagoRow ? origPagoRow.valorTotal : rnd(totalNormalValor + totalSimplesValor);
+    // Fornecedores descartados ficam como Simples no cenário ideal (analista optou por mantê-los)
+    // → seu ICMS original é somado ao projetado, reduzindo a economia corretamente
+    const discardedSuppliers = processedData.summary.simplesSuppliers.filter((_, i) => descartadosTemp.has(i));
+    const discardedIcms = rnd(discardedSuppliers.reduce((a, s) => a + s.originalValue, 0));
+    const baseProjetado = origProjetadoRow ? origProjetadoRow.icmsAntecipado : rnd(totalNormalIcms + totalProjetado);
+    const totalProjetadoIdeal = rnd(baseProjetado + discardedIcms);
     return [
       ...(normalRow ? [normalRow] : []),
       { label: 'Simples Nacional', valorTotal: totalSimplesValor, icmsAntecipado: totalSimplesIcms },
