@@ -35,7 +35,9 @@ export function PrintableIcmsReport({ data, summaryTable, fileName, wheatPrintDa
     (r.label.toUpperCase().includes('NORMAL') && !r.label.toUpperCase().includes('SIMPLES') && !r.label.toUpperCase().includes('PROJEÇÃO'))
   )?.icmsAntecipado || 0);
   const totalProjected  = round(summaryTable.find(r => r.label.includes('Projeção (Normal)'))?.icmsAntecipado || 0);
-  const totalPagoReal   = round(totalNormal + totalSimples);
+  // Lê o total pago direto do summaryTable (já corrigido com Grand Total do pivot)
+  const pagoRow = summaryTable.find(r => r.label.includes('Real'));
+  const totalPagoReal   = pagoRow ? round(pagoRow.icmsAntecipado) : round(totalNormal + totalSimples);
   const totalProjetadoIdeal = round(totalNormal + totalProjected);
   const totalDiff       = round(totalPagoReal - totalProjetadoIdeal);
 

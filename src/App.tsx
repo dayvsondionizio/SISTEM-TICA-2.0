@@ -109,8 +109,10 @@ function PrintableReport({ data, summaryTable, fileName, isFullReport = false, w
   const totalSimples = round(summaryTable.find(r => r.label.toUpperCase().includes('SIMPLES NACIONAL'))?.icmsAntecipado || 0);
   const totalNormal = round(summaryTable.find(r => r.label.toUpperCase() === 'NORMAL' || (r.label.toUpperCase().includes('NORMAL') && !r.label.toUpperCase().includes('SIMPLES') && !r.label.toUpperCase().includes('PROJEÇÃO')))?.icmsAntecipado || 0);
   const totalProjected = round(summaryTable.find(r => r.label.includes('Projeção (Normal)'))?.icmsAntecipado || 0);
-  
-  const totalPagoReal = round(totalNormal + totalSimples);
+
+  // Lê o total pago e a diferença direto do summaryTable (já corrigido com Grand Total do pivot)
+  const pagoRow = summaryTable.find(r => r.label.includes('Real'));
+  const totalPagoReal = pagoRow ? round(pagoRow.icmsAntecipado) : round(totalNormal + totalSimples);
   const totalProjetadoIdeal = round(totalNormal + totalProjected);
   const totalDiff = round(totalPagoReal - totalProjetadoIdeal);
 
