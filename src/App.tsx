@@ -2068,10 +2068,19 @@ NENHUMA PALAVRA OU EXPLICAÇÃO DEVE SER ESCRITA NA RESPOSTA ALÉM DO ARRAY JSON
         const rnd = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
         const ss = result.summary.simplesSuppliers as any[];
 
-        // Classifica itens de trigo via IA (mesma lógica do BakeryPanel)
-        const bakeryClassified = result.allProducts?.length
-          ? await classifyBakeryItemsForBatch(result.allProducts)
-          : [];
+        // Classifica itens de trigo via IA — se falhar (rate limit), salva desmarcados para revisão manual
+        let bakeryClassified: BakeryItemSalvo[] = [];
+        if (result.allProducts?.length) {
+          try {
+            bakeryClassified = await classifyBakeryItemsForBatch(result.allProducts);
+          } catch {
+            bakeryClassified = result.allProducts.map(p => ({
+              description: p.description, supplier: p.supplier || '—',
+              value: p.value, ncm: p.ncm || '',
+              selected: false, aiConfidence: 'low' as const,
+            }));
+          }
+        }
 
         // Salva como RASCUNHO — já com itens de trigo classificados e pré-selecionados pela IA
         const rascunho: RascunhoAuditoria = {
