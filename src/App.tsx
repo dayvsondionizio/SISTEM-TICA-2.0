@@ -265,15 +265,17 @@ function SimplesDashboard({ data, summaryTable, fileName, descartados, onToggleD
     const totalSimplesValor = round(ativos.reduce((a, s) => a + s.productTotal, 0));
     const totalProjetado = round(ativos.reduce((a, s) => a + s.newValue, 0));
     const totalNormalIcms = normalRow?.icmsAntecipado ?? 0;
-    const totalNormalValor = normalRow?.valorTotal ?? 0;
-    const totalPagoReal = round(totalNormalIcms + totalSimplesIcms);
+    // Usa o Grand Total preservado no summaryTable (inclui itens blanqueados que já foram pagos)
+    const origPagoRow = summaryTable.find(r => r.label.includes('Real'));
+    const totalPagoReal = origPagoRow ? origPagoRow.icmsAntecipado : round(totalNormalIcms + totalSimplesIcms);
+    const totalPagoValor = origPagoRow ? origPagoRow.valorTotal : round((normalRow?.valorTotal ?? 0) + totalSimplesValor);
     const totalProjetadoIdeal = round(totalNormalIcms + totalProjetado);
     return [
       ...(normalRow ? [normalRow] : []),
       { label: 'Simples Nacional', valorTotal: totalSimplesValor, icmsAntecipado: totalSimplesIcms },
       { label: 'Projeção (Normal)', valorTotal: totalSimplesValor, icmsAntecipado: totalProjetado },
-      { label: 'Total ICMS Pago (Real)', valorTotal: totalNormalValor + totalSimplesValor, icmsAntecipado: totalPagoReal },
-      { label: 'Total ICMS Projetado (Cenário Ideal)', valorTotal: totalNormalValor + totalSimplesValor, icmsAntecipado: totalProjetadoIdeal },
+      { label: 'Total ICMS Pago (Real)', valorTotal: totalPagoValor, icmsAntecipado: totalPagoReal },
+      { label: 'Total ICMS Projetado (Cenário Ideal)', valorTotal: totalPagoValor, icmsAntecipado: totalProjetadoIdeal },
       { label: 'Diferença (Economia)', valorTotal: 0, icmsAntecipado: round(totalPagoReal - totalProjetadoIdeal) },
     ];
   }, [descartados, summaryTable, ativos]);
@@ -1572,14 +1574,18 @@ export default function App() {
     const totalProjetado = rnd(ativos.reduce((a, s) => a + s.newValue, 0));
     const totalNormalIcms = normalRow?.icmsAntecipado ?? 0;
     const totalNormalValor = normalRow?.valorTotal ?? 0;
-    const totalPagoReal = rnd(totalNormalIcms + totalSimplesIcms);
+    // Usa o Grand Total preservado no orig (inclui itens blanqueados que já foram pagos)
+    const origPagoRow = orig.find(r => r.label.includes('Real'));
+    const origPagoValorRow = orig.find(r => r.label.includes('Real'));
+    const totalPagoReal = origPagoRow ? origPagoRow.icmsAntecipado : rnd(totalNormalIcms + totalSimplesIcms);
+    const totalPagoValor = origPagoValorRow ? origPagoValorRow.valorTotal : rnd(totalNormalValor + totalSimplesValor);
     const totalProjetadoIdeal = rnd(totalNormalIcms + totalProjetado);
     return [
       ...(normalRow ? [normalRow] : []),
       { label: 'Simples Nacional', valorTotal: totalSimplesValor, icmsAntecipado: totalSimplesIcms },
       { label: 'Projeção (Normal)', valorTotal: totalSimplesValor, icmsAntecipado: totalProjetado },
-      { label: 'Total ICMS Pago (Real)', valorTotal: totalNormalValor + totalSimplesValor, icmsAntecipado: totalPagoReal },
-      { label: 'Total ICMS Projetado (Cenário Ideal)', valorTotal: totalNormalValor + totalSimplesValor, icmsAntecipado: totalProjetadoIdeal },
+      { label: 'Total ICMS Pago (Real)', valorTotal: totalPagoValor, icmsAntecipado: totalPagoReal },
+      { label: 'Total ICMS Projetado (Cenário Ideal)', valorTotal: totalPagoValor, icmsAntecipado: totalProjetadoIdeal },
       { label: 'Diferença (Economia)', valorTotal: 0, icmsAntecipado: rnd(totalPagoReal - totalProjetadoIdeal) },
     ];
   }, [processedData, descartadosTemp]);
@@ -1818,7 +1824,15 @@ NENHUMA PALAVRA OU EXPLICAÇÃO DEVE SER ESCRITA NA RESPOSTA ALÉM DO ARRAY JSON
               for (let i = startRow + 1; i < icmsData.length; i++) {
                 const row = icmsData[i];
                 const label = String(row[tipoIdx] || '').trim();
-                if (!label || label.toLowerCase().includes('total geral')) break;
+                if (!label) break;
+
+                // Captura o Grand Total do pivot como totalPagoReal real (inclui blanks já pagos)
+                if (label.toLowerCase().includes('grand total') || label.toLowerCase().includes('total geral')) {
+                  (summaryTable as any).__grandTotalIcms = parseVisualValue(row[icmsIdx]);
+                  (summaryTable as any).__grandTotalValor = parseVisualValue(row[valorTotalIdx]);
+                  break;
+                }
+
                 // Ignora linhas cujo tipo foi deixado em branco pelo analista
                 if (label.toLowerCase() === '(blank)' || label.toLowerCase() === '(em branco)') continue;
 
@@ -1979,20 +1993,24 @@ NENHUMA PALAVRA OU EXPLICAÇÃO DEVE SER ESCRITA NA RESPOSTA ALÉM DO ARRAY JSON
 
           const totalNormalIcms = normalRow ? normalRow.icmsAntecipado : 0;
           const totalSimplesIcms = simplesRow ? simplesRow.icmsAntecipado : 0;
-          const totalPagoReal = round(totalNormalIcms + totalSimplesIcms);
+          // Se o pivot tem Grand Total (inclui itens blanqueados que ainda foram pagos), usa ele como total real
+          const grandTotalIcms: number | undefined = (summaryTable as any).__grandTotalIcms;
+          const grandTotalValor: number | undefined = (summaryTable as any).__grandTotalValor;
+          const totalPagoReal = grandTotalIcms !== undefined ? round(grandTotalIcms) : round(totalNormalIcms + totalSimplesIcms);
+          const totalPagoValor = grandTotalValor !== undefined ? round(grandTotalValor) : round((normalRow?.valorTotal || 0) + (simplesRow?.valorTotal || 0));
           const totalProjetadoIdeal = round(totalNormalIcms + projectedIcmsAntecipado);
 
           // Add Total Pago Real
           finalSummaryTable.push({
             label: 'Total ICMS Pago (Real)',
-            valorTotal: (normalRow?.valorTotal || 0) + (simplesRow?.valorTotal || 0),
+            valorTotal: totalPagoValor,
             icmsAntecipado: totalPagoReal
           });
 
           // Add Total Projetado Ideal
           finalSummaryTable.push({
             label: 'Total ICMS Projetado (Cenário Ideal)',
-            valorTotal: (normalRow?.valorTotal || 0) + (simplesRow?.valorTotal || 0),
+            valorTotal: totalPagoValor,
             icmsAntecipado: totalProjetadoIdeal
           });
 

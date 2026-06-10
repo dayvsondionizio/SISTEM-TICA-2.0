@@ -683,15 +683,18 @@ export function PrintOverlay({ auditoria, modo, onDone }: PrintOverlayProps) {
   const totalProjetadoAtivo = rnd(ativos.reduce((a, f) => a + f.icmsProjetado, 0));
   const totalNormalIcms = normalRow?.icmsAntecipado ?? 0;
   const totalNormalValor = normalRow?.valorTotal ?? 0;
-  const totalPagoReal = rnd(totalNormalIcms + totalSimplesAtivo);
+  // Usa o Grand Total salvo na auditoria (inclui itens blanqueados que já foram pagos)
+  const origPagoRow = originalTable.find(r => r.label.includes('Real'));
+  const totalPagoReal = origPagoRow ? origPagoRow.icmsAntecipado : rnd(totalNormalIcms + totalSimplesAtivo);
+  const totalPagoValor = origPagoRow ? origPagoRow.valorTotal : rnd(totalNormalValor + totalSimplesValor);
   const totalProjetadoIdeal = rnd(totalNormalIcms + totalProjetadoAtivo);
 
   const summaryTable: SummaryRowSalvo[] = [
     ...(normalRow ? [normalRow] : []),
     { label: 'Simples Nacional', valorTotal: totalSimplesValor, icmsAntecipado: totalSimplesAtivo },
     { label: 'Projeção (Normal)', valorTotal: totalSimplesValor, icmsAntecipado: totalProjetadoAtivo },
-    { label: 'Total ICMS Pago (Real)', valorTotal: totalNormalValor + totalSimplesValor, icmsAntecipado: totalPagoReal },
-    { label: 'Total ICMS Projetado (Cenário Ideal)', valorTotal: totalNormalValor + totalSimplesValor, icmsAntecipado: totalProjetadoIdeal },
+    { label: 'Total ICMS Pago (Real)', valorTotal: totalPagoValor, icmsAntecipado: totalPagoReal },
+    { label: 'Total ICMS Projetado (Cenário Ideal)', valorTotal: totalPagoValor, icmsAntecipado: totalProjetadoIdeal },
     { label: 'Diferença (Economia)', valorTotal: 0, icmsAntecipado: rnd(totalPagoReal - totalProjetadoIdeal) },
   ];
 
