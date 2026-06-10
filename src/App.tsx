@@ -487,7 +487,18 @@ function BakeryPanel({ allProducts, questorTotal, onUpdatePrintData, onPrint, wo
 
       setBakeryItems(items);
     } catch (err) {
-      setAnalysisError(err instanceof Error ? err.message : 'Erro ao analisar com IA.');
+      // IA indisponível (rate limit ou erro) → fallback: todos desmarcados para revisão manual
+      const fallbackItems: BakeryItem[] = products.map(p => ({
+        rowIndex: p.rowIndex,
+        description: p.description,
+        supplier: p.supplier,
+        value: p.value,
+        ncm: p.ncm,
+        selected: false,
+        aiConfidence: 'low' as const,
+      }));
+      setBakeryItems(fallbackItems);
+      setAnalysisError('⚠️ IA indisponível (limite atingido) — itens carregados desmarcados. Marque manualmente e salve o rascunho.');
     } finally {
       setIsAnalyzing(false);
     }
@@ -625,11 +636,13 @@ function BakeryPanel({ allProducts, questorTotal, onUpdatePrintData, onPrint, wo
           </div>
         )}
 
-        {/* Error */}
+        {/* Error / Aviso IA indisponível */}
         {analysisError && (
-          <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-700 font-medium space-y-2">
-            <p className="font-bold">⚠️ Erro na análise: {analysisError}</p>
-            <button onClick={() => { setAnalyzed(false); }} className="text-xs underline text-red-600">Tentar novamente</button>
+          <div className={`border rounded-xl p-4 text-sm font-medium space-y-2 ${bakeryItems.length > 0 ? 'bg-amber-50 border-amber-200 text-amber-800' : 'bg-red-50 border-red-200 text-red-700'}`}>
+            <p className="font-bold">{analysisError}</p>
+            {bakeryItems.length === 0 && (
+              <button onClick={() => { setAnalyzed(false); }} className="text-xs underline text-red-600">Tentar novamente</button>
+            )}
           </div>
         )}
 
