@@ -30,9 +30,11 @@ import {
   PlayCircle,
   XCircle as XCircleIcon,
   Edit3,
-  Wheat
+  Wheat,
+  BarChart2
 } from 'lucide-react';
 import { ModalSalvar, TelaHistorico, DetalheAuditoria, type AuditoriaSalva, type FornecedorSalvo } from './historico';
+import { TelaPainelGeral } from './painel';
 import { PrintOverlay } from './relatorio';
 import { salvarAuditoria, carregarClientes, carregarHistorico, excluirAuditoria, salvarRascunho, carregarRascunhos, excluirRascunho, type Cliente, type RascunhoAuditoria, type BakeryItemSalvo } from './storage';
 import { groqChat } from './groqClient';
@@ -775,10 +777,11 @@ function BakeryPanel({ allProducts, questorTotal, onUpdatePrintData, onPrint, wo
 }
 
 // ─── TELA HOME ────────────────────────────────────────────────────────────────
-function TelaHome({ onSelectCliente, onOpenClientes, onOpenHistorico, reloadKey }: {
+function TelaHome({ onSelectCliente, onOpenClientes, onOpenHistorico, onOpenPainel, reloadKey }: {
   onSelectCliente: (c: Cliente) => void;
   onOpenClientes: () => void;
   onOpenHistorico: () => void;
+  onOpenPainel: () => void;
   reloadKey?: number;
 }) {
   const [clientes, setClientes] = useState<Cliente[]>([]);
@@ -945,13 +948,20 @@ function TelaHome({ onSelectCliente, onOpenClientes, onOpenHistorico, reloadKey 
               </button>
             </div>
 
-            <div className="flex justify-center pt-4">
+            <div className="flex justify-center gap-6 pt-4">
               <button
                 onClick={onOpenClientes}
                 className="flex items-center gap-2 text-xs font-bold text-white/30 hover:text-white/60 transition-colors"
               >
                 <Building2 className="w-3.5 h-3.5" />
-                Gerenciar clientes cadastrados
+                Gerenciar clientes
+              </button>
+              <button
+                onClick={onOpenPainel}
+                className="flex items-center gap-2 text-xs font-bold text-[#F5C000]/60 hover:text-[#F5C000] transition-colors"
+              >
+                <BarChart2 className="w-3.5 h-3.5" />
+                Painel Geral
               </button>
             </div>
           </div>
@@ -1354,6 +1364,7 @@ export default function App() {
 
   const [showHistorico, setShowHistorico] = useState(false);
   const [showClientes, setShowClientes] = useState(false);
+  const [showPainel, setShowPainel] = useState(false);
   const [showModalSalvar, setShowModalSalvar] = useState(false);
   const [showModalRascunho, setShowModalRascunho] = useState(false);
   const [rascunhoParaFinalizar, setRascunhoParaFinalizar] = useState<RascunhoAuditoria | null>(null);
@@ -1426,10 +1437,12 @@ export default function App() {
           onSelectCliente={(c) => { setClienteAtivo(c); setTela('dashboard'); }}
           onOpenClientes={() => setShowClientes(true)}
           onOpenHistorico={() => setShowHistorico(true)}
+          onOpenPainel={() => setShowPainel(true)}
           reloadKey={homeReloadKey}
         />
         {showClientes && <TelaClientes onClose={() => { setShowClientes(false); setHomeReloadKey(k => k + 1); }} />}
         {showHistorico && <TelaHistorico onClose={() => setShowHistorico(false)} />}
+        {showPainel && <TelaPainelGeral onClose={() => setShowPainel(false)} />}
       </>
     );
   }
