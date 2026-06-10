@@ -23,7 +23,25 @@ function parseMes(mes: string): Date {
 }
 
 // Filtra auditorias pelo período selecionado
-function filtrarPorPeriodo(lista: AuditoriaSalva[], meses: number | null): AuditoriaSalva[] {
+function filtrarPorPeriodo(
+  lista: AuditoriaSalva[],
+  meses: number | null,
+  customInicio?: string,
+  customFim?: string,
+): AuditoriaSalva[] {
+  if (meses === -1 && customInicio && customFim) {
+    // Modo personalizado: filtra entre mês início e mês fim
+    try {
+      const ini = parseMes(customInicio).getTime();
+      const fim = parseMes(customFim).getTime();
+      return lista.filter(a => {
+        try {
+          const t = parseMes(a.mesReferencia).getTime();
+          return t >= ini && t <= fim;
+        } catch { return true; }
+      });
+    } catch { return lista; }
+  }
   if (!meses) return lista;
   const limite = new Date();
   limite.setMonth(limite.getMonth() - meses);
@@ -240,7 +258,9 @@ export function TelaPainelGeral({ onClose }: PainelProps) {
   const [historico, setHistorico] = useState<AuditoriaSalva[]>([]);
   const [rascunhosNomes, setRascunhosNomes] = useState<Set<string>>(new Set());
   const [carregando, setCarregando] = useState(true);
-  const [periodo, setPeriodo] = useState<number | null>(null); // null = todos
+  const [periodo, setPeriodo] = useState<number | null>(null); // null=todos, -1=custom
+  const [customInicio, setCustomInicio] = useState('');
+  const [customFim, setCustomFim] = useState('');
   const [ordenar, setOrdenar] = useState<'economia' | 'nome' | 'trigo'>('economia');
   const [busca, setBusca] = useState('');
 
@@ -252,7 +272,25 @@ export function TelaPainelGeral({ onClose }: PainelProps) {
     });
   }, []);
 
-  const filtrado = useMemo(() => filtrarPorPeriodo(historico, periodo), [historico, periodo]);
+  // Lista de todos os meses disponíveis no histórico (ordenados)
+  const mesesDisponiveis = useMemo(() => {
+    const set = new Set<string>(historico.map(a => a.mesReferencia));
+    return Array.from(set).sort((a, b) => parseMes(a).getTime() - parseMes(b).getTime());
+  }, [historico]);
+
+  // Ao entrar no modo custom, inicializa com o range completo
+  const ativarCustom = () => {
+    if (mesesDisponiveis.length > 0) {
+      setCustomInicio(mesesDisponiveis[0]);
+      setCustomFim(mesesDisponiveis[mesesDisponiveis.length - 1]);
+    }
+    setPeriodo(-1);
+  };
+
+  const filtrado = useMemo(
+    () => filtrarPorPeriodo(historico, periodo, customInicio, customFim),
+    [historico, periodo, customInicio, customFim],
+  );
 
   const empresas = useMemo(() => {
     const mapa = new Map<string, AuditoriaSalva[]>();
@@ -302,9 +340,9 @@ export function TelaPainelGeral({ onClose }: PainelProps) {
 
   const PERIODOS = [
     { label: 'Todos', value: null },
-    { label: 'Últimos 3 meses', value: 3 },
-    { label: 'Últimos 6 meses', value: 6 },
-    { label: 'Últimos 12 meses', value: 12 },
+    { label: '3 meses', value: 3 },
+    { label: '6 meses', value: 6 },
+    { label: '12 meses', value: 12 },
   ];
 
   return (
@@ -312,35 +350,72 @@ export function TelaPainelGeral({ onClose }: PainelProps) {
       <div className="bg-[#f8fafc] rounded-3xl shadow-2xl w-full max-w-5xl max-h-[92vh] flex flex-col overflow-hidden">
 
         {/* ── Header ── */}
-        <div className="bg-[#001F3F] px-6 py-5 flex items-center justify-between flex-shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="bg-[#F5C000] p-2.5 rounded-xl">
-              <BarChart2 className="w-5 h-5 text-[#001F3F]" />
+        <div className="bg-[#001F3F] px-6 py-5 flex-shrink-0">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="bg-[#F5C000] p-2.5 rounded-xl">
+                <BarChart2 className="w-5 h-5 text-[#001F3F]" />
+              </div>
+              <div>
+                <h2 className="text-xl font-black text-white">Painel Geral</h2>
+                <p className="text-sky-300 text-xs font-bold">
+                  {empresas.size} empresa{empresas.size !== 1 ? 's' : ''} · {totalMeses} apuração{totalMeses !== 1 ? 'ões' : ''}
+                </p>
+              </div>
             </div>
-            <div>
-              <h2 className="text-xl font-black text-white">Painel Geral</h2>
-              <p className="text-sky-300 text-xs font-bold">
-                {empresas.size} empresas · {totalMeses} apurações
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            {/* Filtro período */}
-            <div className="flex bg-white/10 rounded-xl overflow-hidden">
-              {PERIODOS.map(p => (
+            <div className="flex items-center gap-3">
+              {/* Filtro período — presets */}
+              <div className="flex bg-white/10 rounded-xl overflow-hidden">
+                {PERIODOS.map(p => (
+                  <button
+                    key={String(p.value)}
+                    onClick={() => setPeriodo(p.value)}
+                    className={`px-3 py-1.5 text-xs font-bold transition-colors ${periodo === p.value ? 'bg-[#F5C000] text-[#001F3F]' : 'text-white/70 hover:text-white'}`}
+                  >
+                    {p.label}
+                  </button>
+                ))}
                 <button
-                  key={String(p.value)}
-                  onClick={() => setPeriodo(p.value)}
-                  className={`px-3 py-1.5 text-xs font-bold transition-colors ${periodo === p.value ? 'bg-[#F5C000] text-[#001F3F]' : 'text-white/70 hover:text-white'}`}
+                  onClick={ativarCustom}
+                  className={`px-3 py-1.5 text-xs font-bold transition-colors border-l border-white/10 ${periodo === -1 ? 'bg-[#F5C000] text-[#001F3F]' : 'text-white/70 hover:text-white'}`}
                 >
-                  {p.label}
+                  Personalizar
                 </button>
-              ))}
+              </div>
+              <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-xl transition-colors">
+                <X className="w-6 h-6 text-white" />
+              </button>
             </div>
-            <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-xl transition-colors">
-              <X className="w-6 h-6 text-white" />
-            </button>
           </div>
+
+          {/* Seletor de período personalizado */}
+          {periodo === -1 && mesesDisponiveis.length > 0 && (
+            <div className="mt-3 flex items-center gap-3 bg-white/10 rounded-xl px-4 py-2.5">
+              <span className="text-xs font-bold text-white/60">De</span>
+              <select
+                value={customInicio}
+                onChange={e => setCustomInicio(e.target.value)}
+                className="bg-white/20 border-0 text-white text-xs font-bold rounded-lg px-2 py-1 outline-none cursor-pointer"
+              >
+                {mesesDisponiveis.map(m => (
+                  <option key={m} value={m} className="text-slate-800 bg-white">{m}</option>
+                ))}
+              </select>
+              <span className="text-xs font-bold text-white/60">até</span>
+              <select
+                value={customFim}
+                onChange={e => setCustomFim(e.target.value)}
+                className="bg-white/20 border-0 text-white text-xs font-bold rounded-lg px-2 py-1 outline-none cursor-pointer"
+              >
+                {mesesDisponiveis.map(m => (
+                  <option key={m} value={m} className="text-slate-800 bg-white">{m}</option>
+                ))}
+              </select>
+              <span className="text-xs text-[#F5C000] font-bold ml-1">
+                {filtrado.length} apuração{filtrado.length !== 1 ? 'ões' : ''} no período
+              </span>
+            </div>
+          )}
         </div>
 
         {/* ── Cards de totais ── */}

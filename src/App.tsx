@@ -816,8 +816,16 @@ function TelaHome({ onSelectCliente, onOpenClientes, onOpenHistorico, onOpenPain
   return (
     <div className="min-h-screen flex flex-col" style={{ background: 'linear-gradient(135deg, #001022 0%, #001F3F 50%, #002d5c 100%)' }}>
 
-      {/* Header vazio — só espaçamento */}
-      <div className="h-8" />
+      {/* Header com botão Painel Geral */}
+      <div className="h-8 relative">
+        <button
+          onClick={onOpenPainel}
+          className="absolute top-3 right-6 flex items-center gap-2 bg-white/10 hover:bg-[#F5C000] border border-white/20 hover:border-[#F5C000] text-white hover:text-[#001F3F] text-xs font-bold px-4 py-2 rounded-xl transition-all group"
+        >
+          <BarChart2 className="w-4 h-4" />
+          Painel Geral
+        </button>
+      </div>
 
       {/* Hero central com logo */}
       <main className="relative z-10 flex-1 flex flex-col items-center justify-center px-6 pb-16">
@@ -948,20 +956,13 @@ function TelaHome({ onSelectCliente, onOpenClientes, onOpenHistorico, onOpenPain
               </button>
             </div>
 
-            <div className="flex justify-center gap-6 pt-4">
+            <div className="flex justify-center pt-4">
               <button
                 onClick={onOpenClientes}
                 className="flex items-center gap-2 text-xs font-bold text-white/30 hover:text-white/60 transition-colors"
               >
                 <Building2 className="w-3.5 h-3.5" />
-                Gerenciar clientes
-              </button>
-              <button
-                onClick={onOpenPainel}
-                className="flex items-center gap-2 text-xs font-bold text-[#F5C000]/60 hover:text-[#F5C000] transition-colors"
-              >
-                <BarChart2 className="w-3.5 h-3.5" />
-                Painel Geral
+                Gerenciar clientes cadastrados
               </button>
             </div>
           </div>
