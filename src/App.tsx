@@ -1817,9 +1817,11 @@ NENHUMA PALAVRA OU EXPLICAÇÃO DEVE SER ESCRITA NA RESPOSTA ALÉM DO ARRAY JSON
 
               for (let i = startRow + 1; i < icmsData.length; i++) {
                 const row = icmsData[i];
-                const label = String(row[tipoIdx] || '');
+                const label = String(row[tipoIdx] || '').trim();
                 if (!label || label.toLowerCase().includes('total geral')) break;
-                
+                // Ignora linhas cujo tipo foi deixado em branco pelo analista
+                if (label.toLowerCase() === '(blank)' || label.toLowerCase() === '(em branco)') continue;
+
                 summaryTable.push({
                   label,
                   valorTotal: parseVisualValue(row[valorTotalIdx]),
