@@ -1037,43 +1037,46 @@ function DashboardCliente({ cliente, onNovaApuracao, onVoltar, onFinalizarRascun
     setTimeout(() => { document.body.removeChild(link); URL.revokeObjectURL(url); }, 100);
   };
 
+  const fmtXlsx = (v: number) =>
+    new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v);
+
   const downloadExcelMulti = (lista: AuditoriaSalva[]) => {
     const wb = XLSX.utils.book_new();
     const sorted = [...lista].sort((a, b) => {
       const toNum = (r: string) => { const [m, y] = r.split('/'); return parseInt(y||'0')*100+parseInt(m||'0'); };
       return toNum(a.mesReferencia) - toNum(b.mesReferencia);
     });
-    // Aba Resumo
+    // Aba Resumo — apenas Mês, ICMS Pago, ICMS Projetado, Economia
     const resumoRows: any[][] = [
-      ['Mês', 'ICMS Pago (Simples)', 'ICMS Projetado', 'Economia', '% Trigo', 'Regra 7%', 'Fornecedores Ativos'],
+      ['Mês', 'ICMS Pago (Simples)', 'ICMS Projetado', 'Economia'],
       ...sorted.map(a => {
         const ativos = a.fornecedores.filter(f => !f.descartado);
         return [
           a.mesReferencia,
-          round(ativos.reduce((s,f)=>s+f.icmsPago,0)),
-          round(ativos.reduce((s,f)=>s+f.icmsProjetado,0)),
-          round(ativos.reduce((s,f)=>s+f.economia,0)),
-          a.percentualSistematica !== null && a.percentualSistematica !== undefined ? a.percentualSistematica : '—',
-          a.regra7pctAtendida !== null && a.regra7pctAtendida !== undefined ? (a.regra7pctAtendida ? 'Aprovado' : 'Reprovado') : '—',
-          ativos.length,
+          fmtXlsx(round(ativos.reduce((s,f)=>s+f.icmsPago,0))),
+          fmtXlsx(round(ativos.reduce((s,f)=>s+f.icmsProjetado,0))),
+          fmtXlsx(round(ativos.reduce((s,f)=>s+f.economia,0))),
         ];
       }),
       [],
       ['TOTAL', '', '',
-        round(sorted.reduce((acc,a)=>acc+a.fornecedores.filter(f=>!f.descartado).reduce((s,f)=>s+f.economia,0),0)),
-        '','',''],
+        fmtXlsx(round(sorted.reduce((acc,a)=>acc+a.fornecedores.filter(f=>!f.descartado).reduce((s,f)=>s+f.economia,0),0)))],
     ];
     const wsResumo = XLSX.utils.aoa_to_sheet(resumoRows);
-    wsResumo['!cols'] = [{wch:12},{wch:20},{wch:18},{wch:16},{wch:10},{wch:12},{wch:18}];
+    wsResumo['!cols'] = [{wch:12},{wch:22},{wch:18},{wch:18}];
     XLSX.utils.book_append_sheet(wb, wsResumo, 'Resumo');
     // Uma aba por mês
     sorted.forEach(a => {
       const ativos = a.fornecedores.filter(f => !f.descartado);
       const rows: any[][] = [
         ['Fornecedor', 'Produto', 'Valor Total', 'ICMS Pago', 'ICMS Projetado', 'Economia'],
-        ...ativos.map(f => [f.nome, f.produto, f.valorTotal, f.icmsPago, f.icmsProjetado, f.economia]),
+        ...ativos.map(f => [f.nome, f.produto, fmtXlsx(f.valorTotal), fmtXlsx(f.icmsPago), fmtXlsx(f.icmsProjetado), fmtXlsx(f.economia)]),
         [],
-        ['TOTAL','', ativos.reduce((s,f)=>s+f.valorTotal,0), ativos.reduce((s,f)=>s+f.icmsPago,0), ativos.reduce((s,f)=>s+f.icmsProjetado,0), ativos.reduce((s,f)=>s+f.economia,0)],
+        ['TOTAL','',
+          fmtXlsx(round(ativos.reduce((s,f)=>s+f.valorTotal,0))),
+          fmtXlsx(round(ativos.reduce((s,f)=>s+f.icmsPago,0))),
+          fmtXlsx(round(ativos.reduce((s,f)=>s+f.icmsProjetado,0))),
+          fmtXlsx(round(ativos.reduce((s,f)=>s+f.economia,0)))],
       ];
       const ws = XLSX.utils.aoa_to_sheet(rows);
       ws['!cols'] = [{wch:40},{wch:40},{wch:16},{wch:16},{wch:18},{wch:16}];

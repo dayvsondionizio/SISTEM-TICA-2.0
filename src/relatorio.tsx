@@ -403,11 +403,22 @@ export function PrintOverlayMulti({ auditorias, modo, onDone }: PrintOverlayMult
             </tbody>
             <tfoot>
               <tr className="bg-[#001F3F] text-white font-black text-sm">
-                <td className="p-3">TOTAL</td>
+                <td className="p-3">TOTAL / MÉDIA</td>
                 <td className="p-3 text-right">{fmtBRL(totalSimples)}</td>
                 <td className="p-3 text-right">{fmtBRL(totalProjetado)}</td>
                 <td className="p-3 text-right text-[#F5C000]">{fmtBRL(totalEconomia)}</td>
-                <td className="p-3 text-center">—</td>
+                <td className="p-3 text-center">
+                  {(() => {
+                    const vals = sorted.map(a => a.percentualSistematica).filter((v): v is number => v !== null && v !== undefined);
+                    if (!vals.length) return <span className="text-white/40">—</span>;
+                    const media = rnd(vals.reduce((a, b) => a + b, 0) / vals.length);
+                    return (
+                      <span className={`text-xs font-black px-2 py-0.5 rounded-full ${media >= 7 ? 'bg-emerald-400 text-emerald-900' : 'bg-amber-400 text-amber-900'}`}>
+                        🌾 {media.toFixed(2).replace('.', ',')}%
+                      </span>
+                    );
+                  })()}
+                </td>
               </tr>
             </tfoot>
           </table>
@@ -615,9 +626,6 @@ export function PrintOverlayMulti({ auditorias, modo, onDone }: PrintOverlayMult
           );
         })}
 
-        <div className="mt-20 text-center text-xs text-slate-400 uppercase tracking-widest border-t border-slate-200 pt-6">
-          Relatório gerado em {new Date().toLocaleString('pt-BR')} · Empresa: {empresa} · Período: {periodo}
-        </div>
       </div>
     </div>
   );
