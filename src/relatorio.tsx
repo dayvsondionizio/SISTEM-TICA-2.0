@@ -35,8 +35,9 @@ export function PrintableIcmsReport({ data, summaryTable, fileName, wheatPrintDa
     (r.label.toUpperCase().includes('NORMAL') && !r.label.toUpperCase().includes('SIMPLES') && !r.label.toUpperCase().includes('PROJEÇÃO'))
   )?.icmsAntecipado || 0);
   const totalProjected  = round(summaryTable.find(r => r.label.includes('Projeção (Normal)'))?.icmsAntecipado || 0);
-  const totalPagoReal   = round(totalNormal + totalSimples);
-  const totalProjetadoIdeal = round(totalNormal + totalProjected);
+  const pagoRow = summaryTable.find(r => r.label.includes('Real'));
+  const totalPagoReal   = pagoRow ? round(pagoRow.icmsAntecipado) : round(totalNormal + totalSimples);
+  const totalProjetadoIdeal = round(totalPagoReal - totalSimples + totalProjected);
   const totalDiff       = round(totalPagoReal - totalProjetadoIdeal);
 
   return (
@@ -683,9 +684,10 @@ export function PrintOverlay({ auditoria, modo, onDone }: PrintOverlayProps) {
   const totalProjetadoAtivo = rnd(ativos.reduce((a, f) => a + f.icmsProjetado, 0));
   const totalNormalIcms = normalRow?.icmsAntecipado ?? 0;
   const totalNormalValor = normalRow?.valorTotal ?? 0;
-  const totalPagoReal = rnd(totalNormalIcms + totalSimplesAtivo);
-  const totalPagoValor = rnd(totalNormalValor + totalSimplesValor);
-  const totalProjetadoIdeal = rnd(totalNormalIcms + totalProjetadoAtivo);
+  const origPagoRow = originalTable.find(r => r.label.includes('Real'));
+  const totalPagoReal = origPagoRow ? origPagoRow.icmsAntecipado : rnd(totalNormalIcms + totalSimplesAtivo);
+  const totalPagoValor = origPagoRow ? origPagoRow.valorTotal : rnd(totalNormalValor + totalSimplesValor);
+  const totalProjetadoIdeal = rnd(totalPagoReal - totalSimplesAtivo + totalProjetadoAtivo);
 
   const summaryTable: SummaryRowSalvo[] = [
     ...(normalRow ? [normalRow] : []),

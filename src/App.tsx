@@ -110,8 +110,9 @@ function PrintableReport({ data, summaryTable, fileName, isFullReport = false, w
   const totalNormal = round(summaryTable.find(r => r.label.toUpperCase() === 'NORMAL' || (r.label.toUpperCase().includes('NORMAL') && !r.label.toUpperCase().includes('SIMPLES') && !r.label.toUpperCase().includes('PROJEÇÃO')))?.icmsAntecipado || 0);
   const totalProjected = round(summaryTable.find(r => r.label.includes('Projeção (Normal)'))?.icmsAntecipado || 0);
 
-  const totalPagoReal = round(totalNormal + totalSimples);
-  const totalProjetadoIdeal = round(totalNormal + totalProjected);
+  const pagoRow = summaryTable.find(r => r.label.includes('Real'));
+  const totalPagoReal = pagoRow ? round(pagoRow.icmsAntecipado) : round(totalNormal + totalSimples);
+  const totalProjetadoIdeal = round(totalPagoReal - totalSimples + totalProjected);
   const totalDiff = round(totalPagoReal - totalProjetadoIdeal);
 
   return (
@@ -266,9 +267,10 @@ function SimplesDashboard({ data, summaryTable, fileName, descartados, onToggleD
     const totalProjetado = round(ativos.reduce((a, s) => a + s.newValue, 0));
     const totalNormalIcms = normalRow?.icmsAntecipado ?? 0;
     const totalNormalValor = normalRow?.valorTotal ?? 0;
-    const totalPagoReal = round(totalNormalIcms + totalSimplesIcms);
-    const totalPagoValor = round(totalNormalValor + totalSimplesValor);
-    const totalProjetadoIdeal = round(totalNormalIcms + totalProjetado);
+    const origPagoRow = summaryTable.find(r => r.label.includes('Real'));
+    const totalPagoReal = origPagoRow ? origPagoRow.icmsAntecipado : round(totalNormalIcms + totalSimplesIcms);
+    const totalPagoValor = origPagoRow ? origPagoRow.valorTotal : round(totalNormalValor + totalSimplesValor);
+    const totalProjetadoIdeal = round(totalPagoReal - totalSimplesIcms + totalProjetado);
     return [
       ...(normalRow ? [normalRow] : []),
       { label: 'Simples Nacional', valorTotal: totalSimplesValor, icmsAntecipado: totalSimplesIcms },
@@ -1573,9 +1575,14 @@ export default function App() {
     const totalProjetado = rnd(ativos.reduce((a, s) => a + s.newValue, 0));
     const totalNormalIcms = normalRow?.icmsAntecipado ?? 0;
     const totalNormalValor = normalRow?.valorTotal ?? 0;
-    const totalPagoReal = rnd(totalNormalIcms + totalSimplesIcms);
-    const totalPagoValor = rnd(totalNormalValor + totalSimplesValor);
-    const totalProjetadoIdeal = rnd(totalNormalIcms + totalProjetado);
+    // Grand Total preservado no orig (o que o cliente pagou, inclui itens fora de análise)
+    const origPagoRow = orig.find(r => r.label.includes('Real'));
+    const fullSimplesRow = orig.find(r => r.label.toUpperCase().includes('SIMPLES NACIONAL'));
+    const totalPagoReal = origPagoRow ? origPagoRow.icmsAntecipado : rnd(totalNormalIcms + totalSimplesIcms);
+    const totalPagoValor = origPagoRow ? origPagoRow.valorTotal : rnd(totalNormalValor + totalSimplesValor);
+    // Projetado = totalPago − simplesAtivo + projetadoAtivo
+    // Itens fora de análise (blank) ficam iguais nos dois lados e se cancelam na economia
+    const totalProjetadoIdeal = rnd(totalPagoReal - totalSimplesIcms + totalProjetado);
     return [
       ...(normalRow ? [normalRow] : []),
       { label: 'Simples Nacional', valorTotal: totalSimplesValor, icmsAntecipado: totalSimplesIcms },
@@ -1820,9 +1827,17 @@ NENHUMA PALAVRA OU EXPLICAÇÃO DEVE SER ESCRITA NA RESPOSTA ALÉM DO ARRAY JSON
               for (let i = startRow + 1; i < icmsData.length; i++) {
                 const row = icmsData[i];
                 const label = String(row[tipoIdx] || '').trim();
-                if (!label || label.toLowerCase().includes('grand total') || label.toLowerCase().includes('total geral')) break;
+                if (!label) break;
 
-                // Ignora linhas com tipo em branco: item não era tributável (erro identificado pelo analista)
+                // Captura Grand Total (inclui tudo que o cliente pagou, inclusive itens fora de análise)
+                if (label.toLowerCase().includes('grand total') || label.toLowerCase().includes('total geral')) {
+                  (summaryTable as any).__grandTotalIcms = parseVisualValue(row[icmsIdx]);
+                  (summaryTable as any).__grandTotalValor = parseVisualValue(row[valorTotalIdx]);
+                  break;
+                }
+
+                // Linhas com tipo em branco/(blank)/(em branco): não são Simples nem Normal
+                // Não entram no summaryTable nem na lista de fornecedores, mas o valor já está no Grand Total
                 if (label.toLowerCase() === '(blank)' || label.toLowerCase() === '(em branco)') continue;
 
                 summaryTable.push({
@@ -1982,10 +1997,13 @@ NENHUMA PALAVRA OU EXPLICAÇÃO DEVE SER ESCRITA NA RESPOSTA ALÉM DO ARRAY JSON
 
           const totalNormalIcms = normalRow ? normalRow.icmsAntecipado : 0;
           const totalSimplesIcms = simplesRow ? simplesRow.icmsAntecipado : 0;
-          // Blank = item não tributável (erro); exclui completamente. Total pago = Normal + Simples apenas.
-          const totalPagoReal = round(totalNormalIcms + totalSimplesIcms);
-          const totalPagoValor = round((normalRow?.valorTotal || 0) + (simplesRow?.valorTotal || 0));
-          const totalProjetadoIdeal = round(totalNormalIcms + projectedIcmsAntecipado);
+          // Grand Total do pivot = o que o cliente efetivamente pagou (inclui itens fora de análise)
+          const grandTotalIcms: number | undefined = (summaryTable as any).__grandTotalIcms;
+          const grandTotalValor: number | undefined = (summaryTable as any).__grandTotalValor;
+          const totalPagoReal = grandTotalIcms !== undefined ? round(grandTotalIcms) : round(totalNormalIcms + totalSimplesIcms);
+          const totalPagoValor = grandTotalValor !== undefined ? round(grandTotalValor) : round((normalRow?.valorTotal || 0) + (simplesRow?.valorTotal || 0));
+          // Projetado = totalPago − simplesIcms + projetadoSimples (itens fora de análise ficam iguais nos dois lados)
+          const totalProjetadoIdeal = round(totalPagoReal - totalSimplesIcms + projectedIcmsAntecipado);
 
           // Add Total Pago Real
           finalSummaryTable.push({
