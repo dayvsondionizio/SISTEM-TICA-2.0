@@ -201,13 +201,16 @@ export function EditorRascunho({ rascunho, onFinalizar, onSalvarAlteracoes, onCl
     const totalProjetado = round(ativos.reduce((a, f) => a + f.icmsProjetado, 0));
     const totalNormalIcms = normalRow?.icmsAntecipado ?? 0;
     const totalNormalValor = normalRow?.valorTotal ?? 0;
-    const totalPagoReal = round(totalNormalIcms + totalSimplesIcms);
-    const totalProjetadoIdeal = round(totalNormalIcms + totalProjetado);
+    // Grand Total preservado no orig (o que o cliente pagou, inclui itens fora de análise)
+    const origPagoRow = orig.find(r => r.label.includes('Real'));
+    const totalPagoReal = origPagoRow ? origPagoRow.icmsAntecipado : round(totalNormalIcms + totalSimplesIcms);
+    const totalPagoValor = origPagoRow ? origPagoRow.valorTotal : round(totalNormalValor + totalSimplesValor);
+    const totalProjetadoIdeal = round(totalPagoReal - totalSimplesIcms + totalProjetado);
     return [
       ...(normalRow ? [normalRow] : []),
       { label: 'Simples Nacional', valorTotal: totalSimplesValor, icmsAntecipado: totalSimplesIcms },
       { label: 'Projeção (Normal)', valorTotal: totalSimplesValor, icmsAntecipado: totalProjetado },
-      { label: 'Total ICMS Pago (Real)', valorTotal: totalNormalValor + totalSimplesValor, icmsAntecipado: totalPagoReal },
+      { label: 'Total ICMS Pago (Real)', valorTotal: totalPagoValor, icmsAntecipado: totalPagoReal },
       { label: 'Total ICMS Projetado (Cenário Ideal)', valorTotal: totalNormalValor + totalSimplesValor, icmsAntecipado: totalProjetadoIdeal },
       { label: 'Diferença (Economia)', valorTotal: 0, icmsAntecipado: round(totalPagoReal - totalProjetadoIdeal) },
     ];
@@ -224,11 +227,11 @@ export function EditorRascunho({ rascunho, onFinalizar, onSalvarAlteracoes, onCl
     totalIcmsProjetado: round(fornecedoresAtivos.reduce((a, f) => a + f.icmsProjetado, 0)),
     economiaTotal: economiaAtiva,
     totalRegistros: fornecedores.length,
-    percentualSistematica: pct,
-    regra7pctAtendida: pct !== null ? isOk : null,
-    trigoQuestorTotal: questorTotal,
-    trigoSelectedTotal: selectedTotal,
-    trigoItens: selecionados.map(i => ({ description: i.description, supplier: i.supplier, ncm: i.ncm, value: i.value })),
+    percentualSistematica: isConfirmed ? pct : null,
+    regra7pctAtendida: isConfirmed && pct !== null ? isOk : null,
+    trigoQuestorTotal: isConfirmed ? questorTotal : null,
+    trigoSelectedTotal: isConfirmed ? selectedTotal : 0,
+    trigoItens: isConfirmed ? selecionados.map(i => ({ description: i.description, supplier: i.supplier, ncm: i.ncm, value: i.value })) : [],
     summaryTable: summaryTableRascunho,
     fornecedores,
   };
