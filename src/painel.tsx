@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import ReactDOM from 'react-dom';
 import {
   X, Building2, TrendingUp, Wheat, ChevronDown, ChevronUp,
   Clock, BarChart2, AlertTriangle, RefreshCw, FileText, Printer
@@ -75,7 +76,7 @@ function PrintablePainelReport({ empresasFiltradas, totalEconomiaGeral, trigoMed
   const dateStr = new Date().toLocaleDateString('pt-BR');
 
   return (
-    <div className="hidden print:block bg-white text-slate-900 font-sans text-[11px]">
+    <div className="bg-white text-slate-900 font-sans text-[11px]">
       {/* Cabeçalho */}
       <div className="bg-[#001F3F] text-white px-10 py-8 print:break-after-avoid">
         <h1 className="text-2xl font-black tracking-tight">Relatório Geral — Economia ICMS Sistemática</h1>
@@ -144,7 +145,7 @@ function PrintablePainelReport({ empresasFiltradas, totalEconomiaGeral, trigoMed
                   <th className="text-right py-1.5 px-2 font-bold uppercase tracking-wider text-slate-500">ICMS Pago</th>
                   <th className="text-right py-1.5 px-2 font-bold uppercase tracking-wider text-slate-500">ICMS Projetado</th>
                   <th className="text-right py-1.5 px-2 font-bold uppercase tracking-wider text-slate-500">% Trigo</th>
-                  <th className="text-right py-1.5 px-2 font-bold uppercase tracking-wider text-slate-500">Fornec.</th>
+                  <th className="text-right py-1.5 px-2 font-bold uppercase tracking-wider text-slate-500">Forn. Simples</th>
                 </tr>
               </thead>
               <tbody>
@@ -501,15 +502,27 @@ export function TelaPainelGeral({ onClose }: PainelProps) {
 
   return (
     <>
-    {printPainel && (
-      <PrintablePainelReport
-        empresasFiltradas={empresasFiltradas}
-        totalEconomiaGeral={totalEconomiaGeral}
-        trigoMediaGeral={trigoMediaGeral}
-        trigoOk={trigoOk}
-        trigoTotal={trigoTodos.length}
-        periodoLabel={periodoLabel}
-      />
+    {printPainel && ReactDOM.createPortal(
+      <>
+        <style dangerouslySetInnerHTML={{ __html: `
+          #painel-print-root { display: none; }
+          @media print {
+            body > *:not(#painel-print-root) { display: none !important; }
+            #painel-print-root { display: block !important; }
+          }
+        ` }} />
+        <div id="painel-print-root">
+          <PrintablePainelReport
+            empresasFiltradas={empresasFiltradas}
+            totalEconomiaGeral={totalEconomiaGeral}
+            trigoMediaGeral={trigoMediaGeral}
+            trigoOk={trigoOk}
+            trigoTotal={trigoTodos.length}
+            periodoLabel={periodoLabel}
+          />
+        </div>
+      </>,
+      document.body
     )}
     <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 print:hidden">
       <div className="bg-[#f8fafc] rounded-3xl shadow-2xl w-full max-w-5xl max-h-[92vh] flex flex-col overflow-hidden">
