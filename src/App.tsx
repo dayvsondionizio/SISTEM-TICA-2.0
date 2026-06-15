@@ -95,7 +95,7 @@ interface ProcessedData {
   allProducts?: { description: string; supplier: string; value: number; ncm?: string; rowIndex: number }[];
 }
 
-function PrintableReport({ data, summaryTable, fileName, isFullReport = false, wheatPrintData }: { data: SimplesSupplierData[], summaryTable: SummaryRow[], fileName: string, isFullReport?: boolean, wheatPrintData?: any }) {
+function PrintableReport({ data, summaryTable, fileName, mes, isFullReport = false, wheatPrintData }: { data: SimplesSupplierData[], summaryTable: SummaryRow[], fileName: string, mes?: string, isFullReport?: boolean, wheatPrintData?: any }) {
   const limit = 300;
   const isLimited = !isFullReport && data.length > limit;
   const displayData = isLimited ? data.slice(0, limit) : data;
@@ -136,6 +136,9 @@ function PrintableReport({ data, summaryTable, fileName, isFullReport = false, w
           <p className="text-lg font-medium text-slate-300">
             Análise estratégica para empresa <span className="text-white font-bold">{companyName}</span>
           </p>
+          {mes && (
+            <p className="text-base font-medium text-[#F5C000] mt-1">{mes}</p>
+          )}
         </div>
       </div>
 
@@ -1542,6 +1545,7 @@ export default function App() {
   const [rascunhoParaFinalizar, setRascunhoParaFinalizar] = useState<RascunhoAuditoria | null>(null);
   const [salvando, setSalvando] = useState(false);
   const [descartadosTemp, setDescartadosTemp] = useState<Set<number>>(new Set());
+  const [mesAnalise, setMesAnalise] = useState<string>('');
   const [homeReloadKey, setHomeReloadKey] = React.useState(0);
 
   const groqApiKey = import.meta.env.VITE_GROQ_API_KEY || sessionStorage.getItem('groqApiKey') || '';
@@ -1643,6 +1647,7 @@ export default function App() {
 
   const handleSalvarHistorico = (_empresa: string, mes: string) => {
     if (!processedData || !clienteAtivo) return;
+    setMesAnalise(mes);
     setSalvando(true);
     const fornecedores: FornecedorSalvo[] = processedData.summary.simplesSuppliers.map((s, i) => ({
       id: `${Date.now()}-${i}`,
@@ -3001,6 +3006,7 @@ NENHUMA PALAVRA OU EXPLICAÇÃO DEVE SER ESCRITA NA RESPOSTA ALÉM DO ARRAY JSON
             data={processedData.summary.simplesSuppliers.filter((_, i) => !descartadosTemp.has(i))}
             summaryTable={summaryTableEfetiva}
             fileName={processedData.fileName}
+            mes={mesAnalise || undefined}
             isFullReport={printMode === 'icms'}
             wheatPrintData={wheatPrintData}
           />

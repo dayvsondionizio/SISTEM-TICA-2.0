@@ -22,10 +22,11 @@ interface IcmsReportProps {
   data: SimplesSupplierData[];
   summaryTable: SummaryRowSalvo[];
   fileName: string;
+  mes?: string;
   wheatPrintData?: any;
 }
 
-export function PrintableIcmsReport({ data, summaryTable, fileName, wheatPrintData }: IcmsReportProps) {
+export function PrintableIcmsReport({ data, summaryTable, fileName, mes, wheatPrintData }: IcmsReportProps) {
   const dateStr     = new Date().toLocaleDateString('pt-BR');
   const companyName = fileName.replace('AUDITORIA_', '').split('.')[0].replace(/_/g, ' ').toUpperCase();
 
@@ -59,6 +60,9 @@ export function PrintableIcmsReport({ data, summaryTable, fileName, wheatPrintDa
             <p className="text-lg font-medium text-slate-300">
               Análise estratégica para empresa <span className="text-white font-bold">{companyName}</span>
             </p>
+            {mes && (
+              <p className="text-base font-medium text-[#F5C000] mt-1">{mes}</p>
+            )}
           </div>
         </div>
 
@@ -775,6 +779,7 @@ export function PrintOverlay({ auditoria, modo, onDone }: PrintOverlayProps) {
             data={data}
             summaryTable={summaryTable}
             fileName={auditoria.nomeEmpresa}
+            mes={auditoria.mesReferencia}
             wheatPrintData={wheatForIcms}
           />
         )}
