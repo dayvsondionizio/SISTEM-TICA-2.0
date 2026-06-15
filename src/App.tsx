@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useRef } from 'react';
+import { useAuth } from './AuthContext';
 import * as XLSX from 'xlsx';
 import {
   FileUp,
@@ -31,7 +32,8 @@ import {
   XCircle as XCircleIcon,
   Edit3,
   Wheat,
-  BarChart2
+  BarChart2,
+  LogOut
 } from 'lucide-react';
 import { ModalSalvar, TelaHistorico, DetalheAuditoria, type AuditoriaSalva, type FornecedorSalvo } from './historico';
 import { TelaPainelGeral } from './painel';
@@ -780,11 +782,12 @@ function BakeryPanel({ allProducts, questorTotal, onUpdatePrintData, onPrint, wo
 }
 
 // ─── TELA HOME ────────────────────────────────────────────────────────────────
-function TelaHome({ onSelectCliente, onOpenClientes, onOpenHistorico, onOpenPainel, reloadKey }: {
+function TelaHome({ onSelectCliente, onOpenClientes, onOpenHistorico, onOpenPainel, onSignOut, reloadKey }: {
   onSelectCliente: (c: Cliente) => void;
   onOpenClientes: () => void;
   onOpenHistorico: () => void;
   onOpenPainel: () => void;
+  onSignOut: () => void;
   reloadKey?: number;
 }) {
   const [clientes, setClientes] = useState<Cliente[]>([]);
@@ -819,15 +822,25 @@ function TelaHome({ onSelectCliente, onOpenClientes, onOpenHistorico, onOpenPain
   return (
     <div className="min-h-screen flex flex-col" style={{ background: 'linear-gradient(135deg, #001022 0%, #001F3F 50%, #002d5c 100%)' }}>
 
-      {/* Header com botão Painel Geral */}
+      {/* Header com botões */}
       <div className="h-8 relative">
-        <button
-          onClick={onOpenPainel}
-          className="absolute top-3 right-6 flex items-center gap-2 bg-white/10 hover:bg-[#F5C000] border border-white/20 hover:border-[#F5C000] text-white hover:text-[#001F3F] text-xs font-bold px-4 py-2 rounded-xl transition-all group"
-        >
-          <BarChart2 className="w-4 h-4" />
-          Painel Geral
-        </button>
+        <div className="absolute top-3 right-6 flex items-center gap-2">
+          <button
+            onClick={onOpenPainel}
+            className="flex items-center gap-2 bg-white/10 hover:bg-[#F5C000] border border-white/20 hover:border-[#F5C000] text-white hover:text-[#001F3F] text-xs font-bold px-4 py-2 rounded-xl transition-all"
+          >
+            <BarChart2 className="w-4 h-4" />
+            Painel Geral
+          </button>
+          <button
+            onClick={onSignOut}
+            title="Sair"
+            className="flex items-center gap-1.5 bg-white/5 hover:bg-red-500/20 border border-white/10 hover:border-red-500/40 text-white/40 hover:text-red-300 text-xs font-bold px-3 py-2 rounded-xl transition-all"
+          >
+            <LogOut className="w-4 h-4" />
+            Sair
+          </button>
+        </div>
       </div>
 
       {/* Hero central com logo */}
@@ -1489,6 +1502,7 @@ function DashboardCliente({ cliente, onNovaApuracao, onVoltar, onFinalizarRascun
 }
 
 export default function App() {
+  const { signOut } = useAuth();
   // Navegação: 'home' | 'dashboard' | 'auditoria'
   const [tela, setTela] = useState<'home' | 'dashboard' | 'auditoria'>('home');
   const [clienteAtivo, setClienteAtivo] = useState<Cliente | null>(null);
@@ -1602,6 +1616,7 @@ export default function App() {
           onOpenClientes={() => setShowClientes(true)}
           onOpenHistorico={() => setShowHistorico(true)}
           onOpenPainel={() => setShowPainel(true)}
+          onSignOut={signOut}
           reloadKey={homeReloadKey}
         />
         {showClientes && <TelaClientes onClose={() => { setShowClientes(false); setHomeReloadKey(k => k + 1); }} />}
