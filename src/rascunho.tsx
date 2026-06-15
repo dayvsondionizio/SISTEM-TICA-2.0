@@ -341,8 +341,8 @@ export function EditorRascunho({ rascunho, onFinalizar, onSalvarAlteracoes, onCl
                 {fornecedores.map(f => (
                   <div key={f.id} className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border text-sm ${f.descartado ? 'opacity-50 bg-slate-50 border-slate-100' : 'bg-white border-slate-200'}`}>
                     <div className="flex-1 min-w-0">
-                      <p className={`font-bold truncate text-xs ${f.descartado ? 'line-through text-slate-400' : 'text-slate-800'}`}>{f.nome}</p>
-                      <p className="text-[10px] text-slate-400 truncate">{f.produto}</p>
+                      <p className={`font-bold truncate text-xs ${f.descartado ? 'line-through text-slate-400' : 'text-slate-800'}`}>{f.produto}</p>
+                      <p className="text-[10px] text-slate-400 truncate">{f.nome}</p>
                     </div>
                     <p className={`text-xs font-bold flex-shrink-0 ${f.descartado ? 'text-slate-300' : 'text-emerald-600'}`}>{fmt(f.economia)}</p>
                     <button
