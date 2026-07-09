@@ -155,8 +155,8 @@ function PrintablePainelReport({ empresasFiltradas, totalEconomiaGeral, trigoMed
                   <th className="text-right py-2 px-3 font-bold uppercase tracking-wider text-slate-500">C. Trigo</th>
                   <th className="text-right py-2 px-3 font-bold uppercase tracking-wider text-slate-500">% Trigo</th>
                   <th className="text-right py-2 px-3 font-bold uppercase tracking-wider text-slate-500">Economia</th>
-                  <th className="text-right py-2 px-3 font-bold uppercase tracking-wider text-slate-500">ICMS Projetado</th>
-                  <th className="text-right py-2 px-3 font-bold uppercase tracking-wider text-slate-500">ICMS Pago</th>
+                  <th className="text-right py-2 px-3 font-bold uppercase tracking-wider text-slate-500">ICMS Proj. (Normal)</th>
+                  <th className="text-right py-2 px-3 font-bold uppercase tracking-wider text-slate-500">ICMS Pago (Simples)</th>
                   <th className="text-right py-2 px-3 font-bold uppercase tracking-wider text-slate-500">Forn. Simples</th>
                 </tr>
               </thead>

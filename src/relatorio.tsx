@@ -376,9 +376,9 @@ export function PrintOverlayMulti({ auditorias, modo, onDone }: PrintOverlayMult
             <thead>
               <tr className="bg-[#001F3F] text-white text-xs uppercase tracking-wider">
                 <th className="p-3 text-left">Mês</th>
-                <th className="p-3 text-right">ICMS Pago (Simples)</th>
-                <th className="p-3 text-right">ICMS Projetado</th>
-                <th className="p-3 text-right">Economia</th>
+                <th className="p-3 text-right">ICMS Pago Simples</th>
+                <th className="p-3 text-right">ICMS Proj. (se Normal)</th>
+                <th className="p-3 text-right">Economia (Simples)</th>
                 <th className="p-3 text-center">% Trigo</th>
               </tr>
             </thead>
@@ -489,11 +489,11 @@ export function PrintOverlayMulti({ auditorias, modo, onDone }: PrintOverlayMult
           <h2 className="text-3xl font-black text-[#001F3F] uppercase tracking-tight">Conclusão do Período</h2>
           <div className="space-y-6 text-xl leading-relaxed text-slate-600">
             <p>
-              No período de <span className="font-bold text-[#001F3F]">{periodo}</span>, ao adquirir produtos tributados de ICMS de fornecedores do Simples Nacional, o total de ICMS gerado foi de{' '}
+              No período de <span className="font-bold text-[#001F3F]">{periodo}</span>, o ICMS gerado exclusivamente pelas compras de fornecedores do <span className="font-bold text-[#001F3F]">Simples Nacional</span> foi de{' '}
               <span className="font-bold text-slate-900">{fmtBRL(totalSimples)}</span>.
             </p>
             <p>
-              Se os mesmos produtos tivessem sido adquiridos de fornecedores do Regime Normal, o ICMS seria de apenas{' '}
+              Se esses mesmos produtos tivessem sido adquiridos de fornecedores do <span className="font-bold text-[#001F3F]">Regime Normal</span>, o ICMS projetado seria de apenas{' '}
               <span className="font-bold text-slate-900">{fmtBRL(totalProjetado)}</span>.
             </p>
             <div className="bg-red-50 border-l-4 border-red-500 p-6 rounded-r-2xl">
