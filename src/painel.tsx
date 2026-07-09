@@ -157,6 +157,7 @@ function PrintablePainelReport({ empresasFiltradas, totalEconomiaGeral, trigoMed
                   <th className="text-right py-2 px-3 font-bold uppercase tracking-wider text-slate-500">Economia</th>
                   <th className="text-right py-2 px-3 font-bold uppercase tracking-wider text-slate-500">ICMS Proj. (Normal)</th>
                   <th className="text-right py-2 px-3 font-bold uppercase tracking-wider text-slate-500">ICMS Pago (Simples)</th>
+                  <th className="text-right py-2 px-3 font-bold uppercase tracking-wider text-slate-500">ICMS Total</th>
                   <th className="text-right py-2 px-3 font-bold uppercase tracking-wider text-slate-500">Forn. Simples</th>
                 </tr>
               </thead>
@@ -169,6 +170,9 @@ function PrintablePainelReport({ empresasFiltradas, totalEconomiaGeral, trigoMed
                   const comerc = a.trigoQuestorTotal ?? null;
                   const cTrigo = a.trigoSelectedTotal ?? null;
                   const pct = a.percentualSistematica;
+                  const normalRow = (a.summaryTable ?? []).find(r => r.label.toUpperCase() === 'NORMAL' || (r.label.toUpperCase().includes('NORMAL') && !r.label.toUpperCase().includes('SIMPLES') && !r.label.toUpperCase().includes('PROJEÇÃO')));
+                  const normalIcms = round(normalRow?.icmsAntecipado ?? 0);
+                  const icmsTotal = round(normalIcms + pago);
                   return (
                     <tr key={a.id} className="border-t border-slate-100">
                       <td className="py-2 px-3 font-black text-[#001F3F]">{a.mesReferencia}</td>
@@ -182,6 +186,7 @@ function PrintablePainelReport({ empresasFiltradas, totalEconomiaGeral, trigoMed
                       <td className="py-2 px-3 text-right font-bold text-emerald-700">{fmt(eco)}</td>
                       <td className="py-2 px-3 text-right text-blue-700 font-semibold">{fmt(proj)}</td>
                       <td className="py-2 px-3 text-right text-red-600 font-semibold">{fmt(pago)}</td>
+                      <td className="py-2 px-3 text-right text-slate-700 font-black">{fmt(icmsTotal)}</td>
                       <td className="py-2 px-3 text-right text-slate-500 font-bold">{new Set(ativos.map(f => f.nome)).size}</td>
                     </tr>
                   );
@@ -200,6 +205,7 @@ function PrintablePainelReport({ empresasFiltradas, totalEconomiaGeral, trigoMed
                   <td className="py-2 px-3 text-right font-black text-emerald-700">{fmt(totalEco)}</td>
                   <td className="py-2 px-3 text-right font-black text-blue-700">{fmt(totalProj)}</td>
                   <td className="py-2 px-3 text-right font-black text-red-600">{fmt(totalPago)}</td>
+                  <td className="py-2 px-3 text-right font-black text-slate-700">{fmt(totalPagoGlobal)}</td>
                   <td className="py-2 px-3 text-right font-black text-slate-500">
                     {round(ordenadas.reduce((acc, a) => acc + new Set(a.fornecedores.filter(f => !f.descartado).map(f => f.nome)).size, 0) / (ordenadas.length || 1))}
                     <span className="text-[10px] font-normal">/mês</span>
@@ -207,14 +213,6 @@ function PrintablePainelReport({ empresasFiltradas, totalEconomiaGeral, trigoMed
                 </tr>
               </tfoot>
             </table>
-            {totalNormal > 0 && (
-              <p className="mt-2 text-[11px] text-slate-500">
-                Cenário global (Normal + Simples): ICMS pago{' '}
-                <span className="font-black text-slate-700">{fmt(totalPagoGlobal)}</span>
-                {' '}· valor ideal projetado{' '}
-                <span className="font-black text-slate-700">{fmt(totalIdealGlobal)}</span>
-              </p>
-            )}
           </div>
         );
       })}
@@ -320,8 +318,9 @@ function EmpresaCard({ nome, auditorias, temRascunho }: EmpresaCardProps) {
                   <th className="text-right pr-4">C. Trigo</th>
                   <th className="text-right pr-4">% Trigo</th>
                   <th className="text-right pr-4">Economia</th>
-                  <th className="text-right pr-4">ICMS Projetado</th>
-                  <th className="text-right pr-4">ICMS Pago</th>
+                  <th className="text-right pr-4">ICMS Proj. (Normal)</th>
+                  <th className="text-right pr-4">ICMS Pago (Simples)</th>
+                  <th className="text-right pr-4">ICMS Total</th>
                   <th className="text-right">Fornec.</th>
                 </tr>
               </thead>
@@ -334,6 +333,8 @@ function EmpresaCard({ nome, auditorias, temRascunho }: EmpresaCardProps) {
                   const comerc = a.trigoQuestorTotal ?? null;
                   const cTrigo = a.trigoSelectedTotal ?? null;
                   const uniqueForn = new Set(ativos.map(f => f.nome)).size;
+                  const normalRowUI = (a.summaryTable ?? []).find(r => r.label.toUpperCase() === 'NORMAL' || (r.label.toUpperCase().includes('NORMAL') && !r.label.toUpperCase().includes('SIMPLES') && !r.label.toUpperCase().includes('PROJEÇÃO')));
+                  const icmsTotalUI = round((normalRowUI?.icmsAntecipado ?? 0) + pago);
                   return (
                     <tr key={a.id} className="border-t border-slate-50 hover:bg-slate-50 transition-colors">
                       <td className="py-2 pr-4 font-black text-[#001F3F]">{a.mesReferencia}</td>
@@ -345,6 +346,7 @@ function EmpresaCard({ nome, auditorias, temRascunho }: EmpresaCardProps) {
                       <td className="py-2 pr-4 text-right font-bold text-emerald-600">{fmt(eco)}</td>
                       <td className="py-2 pr-4 text-right text-blue-600 font-semibold">{fmt(proj)}</td>
                       <td className="py-2 pr-4 text-right text-red-500 font-semibold">{fmt(pago)}</td>
+                      <td className="py-2 pr-4 text-right text-slate-700 font-black">{fmt(icmsTotalUI)}</td>
                       <td className="py-2 text-right text-slate-400 font-bold">{uniqueForn}</td>
                     </tr>
                   );
@@ -373,6 +375,13 @@ function EmpresaCard({ nome, auditorias, temRascunho }: EmpresaCardProps) {
                     {fmt(round(ordenadas.reduce((acc, a) => {
                       const ativos = a.fornecedores.filter(f => !f.descartado);
                       return acc + ativos.reduce((s, f) => s + f.icmsPago, 0);
+                    }, 0)))}
+                  </td>
+                  <td className="py-2 pr-4 text-right font-black text-slate-700">
+                    {fmt(round(ordenadas.reduce((acc, a) => {
+                      const ativos = a.fornecedores.filter(f => !f.descartado);
+                      const nr = (a.summaryTable ?? []).find(r => r.label.toUpperCase() === 'NORMAL' || (r.label.toUpperCase().includes('NORMAL') && !r.label.toUpperCase().includes('SIMPLES') && !r.label.toUpperCase().includes('PROJEÇÃO')));
+                      return acc + (nr?.icmsAntecipado ?? 0) + ativos.reduce((s, f) => s + f.icmsPago, 0);
                     }, 0)))}
                   </td>
                   <td className="py-2 text-right font-black text-slate-500">
