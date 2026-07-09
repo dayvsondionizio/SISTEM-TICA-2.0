@@ -76,7 +76,7 @@ function PrintablePainelReport({ empresasFiltradas, totalEconomiaGeral, trigoMed
   const dateStr = new Date().toLocaleDateString('pt-BR');
 
   return (
-    <div className="bg-white text-slate-900 font-sans text-[11px]">
+    <div className="bg-white text-slate-900 font-sans text-[11px] min-w-[900px]">
       {/* Cabeçalho */}
       <div className="bg-[#001F3F] text-white px-10 py-8 print:break-after-avoid">
         <h1 className="text-2xl font-black tracking-tight">Relatório Geral — Economia ICMS Sistemática</h1>
@@ -115,6 +115,9 @@ function PrintablePainelReport({ empresasFiltradas, totalEconomiaGeral, trigoMed
         const totalProj = round(ordenadas.reduce((acc, a) => {
           return acc + a.fornecedores.filter(f => !f.descartado).reduce((s, f) => s + f.icmsProjetado, 0);
         }, 0));
+        const totalComerc = round(ordenadas.reduce((acc, a) => {
+          return acc + a.fornecedores.filter(f => !f.descartado).reduce((s, f) => s + (f.valorTotal || 0), 0);
+        }, 0));
         const trigoVals = ordenadas.map(a => a.percentualSistematica).filter((v): v is number => v !== null && v !== undefined);
         const trigoMed = trigoVals.length ? round(trigoVals.reduce((a, b) => a + b, 0) / trigoVals.length) : null;
 
@@ -141,6 +144,7 @@ function PrintablePainelReport({ empresasFiltradas, totalEconomiaGeral, trigoMed
               <thead>
                 <tr className="bg-slate-100">
                   <th className="text-left py-1.5 px-2 font-bold uppercase tracking-wider text-slate-500">Mês</th>
+                  <th className="text-right py-1.5 px-2 font-bold uppercase tracking-wider text-slate-500">Comerc.</th>
                   <th className="text-right py-1.5 px-2 font-bold uppercase tracking-wider text-slate-500">Economia</th>
                   <th className="text-right py-1.5 px-2 font-bold uppercase tracking-wider text-slate-500">ICMS Pago</th>
                   <th className="text-right py-1.5 px-2 font-bold uppercase tracking-wider text-slate-500">ICMS Projetado</th>
@@ -154,10 +158,12 @@ function PrintablePainelReport({ empresasFiltradas, totalEconomiaGeral, trigoMed
                   const eco = round(ativos.reduce((acc, f) => acc + f.economia, 0));
                   const pago = round(ativos.reduce((acc, f) => acc + f.icmsPago, 0));
                   const proj = round(ativos.reduce((acc, f) => acc + f.icmsProjetado, 0));
+                  const comerc = round(ativos.reduce((acc, f) => acc + (f.valorTotal || 0), 0));
                   const pct = a.percentualSistematica;
                   return (
                     <tr key={a.id} className="border-t border-slate-100">
                       <td className="py-1.5 px-2 font-black text-[#001F3F]">{a.mesReferencia}</td>
+                      <td className="py-1.5 px-2 text-right text-slate-600 font-semibold">{fmt(comerc)}</td>
                       <td className="py-1.5 px-2 text-right font-bold text-emerald-700">{fmt(eco)}</td>
                       <td className="py-1.5 px-2 text-right text-red-600 font-semibold">{fmt(pago)}</td>
                       <td className="py-1.5 px-2 text-right text-blue-700 font-semibold">{fmt(proj)}</td>
@@ -174,6 +180,7 @@ function PrintablePainelReport({ empresasFiltradas, totalEconomiaGeral, trigoMed
               <tfoot>
                 <tr className="border-t-2 border-slate-300 bg-slate-50">
                   <td className="py-1.5 px-2 font-black text-slate-600 uppercase text-[10px] tracking-wider">Total</td>
+                  <td className="py-1.5 px-2 text-right font-black text-slate-600">{fmt(totalComerc)}</td>
                   <td className="py-1.5 px-2 text-right font-black text-emerald-700">{fmt(totalEco)}</td>
                   <td className="py-1.5 px-2 text-right font-black text-red-600">{fmt(totalPago)}</td>
                   <td className="py-1.5 px-2 text-right font-black text-blue-700">{fmt(totalProj)}</td>
@@ -295,6 +302,7 @@ function EmpresaCard({ nome, auditorias, temRascunho }: EmpresaCardProps) {
               <thead>
                 <tr className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
                   <th className="text-left py-1.5 pr-4">Mês</th>
+                  <th className="text-right pr-4">Comerc.</th>
                   <th className="text-right pr-4">Economia</th>
                   <th className="text-right pr-4">ICMS Pago</th>
                   <th className="text-right pr-4">ICMS Projetado</th>
@@ -308,9 +316,11 @@ function EmpresaCard({ nome, auditorias, temRascunho }: EmpresaCardProps) {
                   const eco = round(ativos.reduce((acc, f) => acc + f.economia, 0));
                   const pago = round(ativos.reduce((acc, f) => acc + f.icmsPago, 0));
                   const proj = round(ativos.reduce((acc, f) => acc + f.icmsProjetado, 0));
+                  const comerc = round(ativos.reduce((acc, f) => acc + (f.valorTotal || 0), 0));
                   return (
                     <tr key={a.id} className="border-t border-slate-50 hover:bg-slate-50 transition-colors">
                       <td className="py-2 pr-4 font-black text-[#001F3F]">{a.mesReferencia}</td>
+                      <td className="py-2 pr-4 text-right text-slate-500 font-semibold">{fmt(comerc)}</td>
                       <td className="py-2 pr-4 text-right font-bold text-emerald-600">{fmt(eco)}</td>
                       <td className="py-2 pr-4 text-right text-red-500 font-semibold">{fmt(pago)}</td>
                       <td className="py-2 pr-4 text-right text-blue-600 font-semibold">{fmt(proj)}</td>
@@ -325,6 +335,12 @@ function EmpresaCard({ nome, auditorias, temRascunho }: EmpresaCardProps) {
               <tfoot>
                 <tr className="border-t-2 border-slate-200">
                   <td className="py-2 pr-4 font-black text-slate-600 text-[10px] uppercase tracking-wider">Total</td>
+                  <td className="py-2 pr-4 text-right font-black text-slate-600">
+                    {fmt(round(ordenadas.reduce((acc, a) => {
+                      const ativos = a.fornecedores.filter(f => !f.descartado);
+                      return acc + ativos.reduce((s, f) => s + (f.valorTotal || 0), 0);
+                    }, 0)))}
+                  </td>
                   <td className="py-2 pr-4 text-right font-black text-emerald-700">{fmt(totalEconomia)}</td>
                   <td className="py-2 pr-4 text-right font-black text-red-600">
                     {fmt(round(ordenadas.reduce((acc, a) => {
