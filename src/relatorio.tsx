@@ -376,9 +376,9 @@ export function PrintOverlayMulti({ auditorias, modo, onDone }: PrintOverlayMult
             <thead>
               <tr className="bg-[#001F3F] text-white text-xs uppercase tracking-wider">
                 <th className="p-3 text-left">Mês</th>
-                <th className="p-3 text-right">ICMS Pago Simples</th>
-                <th className="p-3 text-right">ICMS Proj. (se Normal)</th>
-                <th className="p-3 text-right">Economia (Simples)</th>
+                <th className="p-3 text-right">ICMS Pago (Simples)</th>
+                <th className="p-3 text-right">ICMS Projetado</th>
+                <th className="p-3 text-right">Economia</th>
                 <th className="p-3 text-center">% Trigo</th>
               </tr>
             </thead>
