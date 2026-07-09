@@ -170,7 +170,7 @@ function PrintablePainelReport({ empresasFiltradas, totalEconomiaGeral, trigoMed
                           ? <span className={`font-black ${pct >= 7 ? 'text-emerald-700' : 'text-amber-600'}`}>{fmtPct(pct)}</span>
                           : <span className="text-slate-300">—</span>}
                       </td>
-                      <td className="py-1.5 px-2 text-right text-slate-500 font-bold">{ativos.length}</td>
+                      <td className="py-1.5 px-2 text-right text-slate-500 font-bold">{new Set(ativos.map(f => f.nome)).size}</td>
                     </tr>
                   );
                 })}
@@ -186,7 +186,7 @@ function PrintablePainelReport({ empresasFiltradas, totalEconomiaGeral, trigoMed
                     {trigoMed !== null && <span className={`font-black ${trigoMed >= 7 ? 'text-emerald-700' : 'text-amber-600'}`}>{fmtPct(trigoMed)}</span>}
                   </td>
                   <td className="py-1.5 px-2 text-right font-black text-slate-500">
-                    {round(ordenadas.reduce((acc, a) => acc + a.fornecedores.filter(f => !f.descartado).length, 0) / (ordenadas.length || 1))}
+                    {round(ordenadas.reduce((acc, a) => acc + new Set(a.fornecedores.filter(f => !f.descartado).map(f => f.nome)).size, 0) / (ordenadas.length || 1))}
                     <span className="text-[9px] font-normal">/mês</span>
                   </td>
                 </tr>
@@ -315,6 +315,7 @@ function EmpresaCard({ nome, auditorias, temRascunho }: EmpresaCardProps) {
                   const pago = round(ativos.reduce((acc, f) => acc + f.icmsPago, 0));
                   const proj = round(ativos.reduce((acc, f) => acc + f.icmsProjetado, 0));
                   const comerc = a.trigoQuestorTotal ?? null;
+                  const uniqueForn = new Set(ativos.map(f => f.nome)).size;
                   return (
                     <tr key={a.id} className="border-t border-slate-50 hover:bg-slate-50 transition-colors">
                       <td className="py-2 pr-4 font-black text-[#001F3F]">{a.mesReferencia}</td>
@@ -325,7 +326,7 @@ function EmpresaCard({ nome, auditorias, temRascunho }: EmpresaCardProps) {
                       <td className="py-2 pr-4 text-right">
                         <BadgeTrigo pct={a.percentualSistematica ?? null} />
                       </td>
-                      <td className="py-2 text-right text-slate-400 font-bold">{ativos.length}</td>
+                      <td className="py-2 text-right text-slate-400 font-bold">{uniqueForn}</td>
                     </tr>
                   );
                 })}
@@ -353,7 +354,7 @@ function EmpresaCard({ nome, auditorias, temRascunho }: EmpresaCardProps) {
                     {trigoMedia !== null && <BadgeTrigo pct={trigoMedia} />}
                   </td>
                   <td className="py-2 text-right font-black text-slate-500">
-                    {round(ordenadas.reduce((acc, a) => acc + a.fornecedores.filter(f => !f.descartado).length, 0) / (ordenadas.length || 1))}
+                    {round(ordenadas.reduce((acc, a) => acc + new Set(a.fornecedores.filter(f => !f.descartado).map(f => f.nome)).size, 0) / (ordenadas.length || 1))}
                     <span className="text-[10px] text-slate-400 font-normal">/mês</span>
                   </td>
                 </tr>
