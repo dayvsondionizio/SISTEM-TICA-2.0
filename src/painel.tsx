@@ -183,7 +183,7 @@ function PrintablePainelReport({ empresasFiltradas, totalEconomiaGeral, trigoMed
                           ? <span className={`font-black ${pct >= 7 ? 'text-emerald-700' : 'text-amber-600'}`}>{fmtPct(pct)}</span>
                           : <span className="text-slate-300">—</span>}
                       </td>
-                      <td className="py-2 px-3 text-right font-bold text-emerald-700">{fmt(eco)}</td>
+                      <td className="py-2 px-3 text-right font-bold text-slate-500">{fmt(eco)}</td>
                       <td className="py-2 px-3 text-right text-blue-700 font-semibold">{fmt(proj)}</td>
                       <td className="py-2 px-3 text-right text-red-600 font-semibold">{fmt(pago)}</td>
                       <td className="py-2 px-3 text-right text-slate-700 font-black">{fmt(icmsTotal)}</td>
@@ -202,7 +202,7 @@ function PrintablePainelReport({ empresasFiltradas, totalEconomiaGeral, trigoMed
                   <td className="py-2 px-3 text-right">
                     {trigoMed !== null && <span className={`font-black ${trigoMed >= 7 ? 'text-emerald-700' : 'text-amber-600'}`}>{fmtPct(trigoMed)}</span>}
                   </td>
-                  <td className="py-2 px-3 text-right font-black text-emerald-700">{fmt(totalEco)}</td>
+                  <td className="py-2 px-3 text-right font-black text-slate-500">{fmt(totalEco)}</td>
                   <td className="py-2 px-3 text-right font-black text-blue-700">{fmt(totalProj)}</td>
                   <td className="py-2 px-3 text-right font-black text-red-600">{fmt(totalPago)}</td>
                   <td className="py-2 px-3 text-right font-black text-slate-700">{fmt(totalPagoGlobal)}</td>
@@ -343,7 +343,7 @@ function EmpresaCard({ nome, auditorias, temRascunho }: EmpresaCardProps) {
                       <td className="py-2 pr-4 text-right">
                         <BadgeTrigo pct={a.percentualSistematica ?? null} />
                       </td>
-                      <td className="py-2 pr-4 text-right font-bold text-emerald-600">{fmt(eco)}</td>
+                      <td className="py-2 pr-4 text-right font-bold text-slate-500">{fmt(eco)}</td>
                       <td className="py-2 pr-4 text-right text-blue-600 font-semibold">{fmt(proj)}</td>
                       <td className="py-2 pr-4 text-right text-red-500 font-semibold">{fmt(pago)}</td>
                       <td className="py-2 pr-4 text-right text-slate-700 font-black">{fmt(icmsTotalUI)}</td>
@@ -364,7 +364,7 @@ function EmpresaCard({ nome, auditorias, temRascunho }: EmpresaCardProps) {
                   <td className="py-2 pr-4 text-right">
                     {trigoMedia !== null && <BadgeTrigo pct={trigoMedia} />}
                   </td>
-                  <td className="py-2 pr-4 text-right font-black text-emerald-700">{fmt(totalEconomia)}</td>
+                  <td className="py-2 pr-4 text-right font-black text-slate-500">{fmt(totalEconomia)}</td>
                   <td className="py-2 pr-4 text-right font-black text-blue-700">
                     {fmt(round(ordenadas.reduce((acc, a) => {
                       const ativos = a.fornecedores.filter(f => !f.descartado);
