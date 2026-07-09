@@ -118,6 +118,15 @@ function PrintablePainelReport({ empresasFiltradas, totalEconomiaGeral, trigoMed
         const totalComerc = round(ordenadas.reduce((acc, a) => acc + (a.trigoQuestorTotal ?? 0), 0));
         const trigoVals = ordenadas.map(a => a.percentualSistematica).filter((v): v is number => v !== null && v !== undefined);
         const trigoMed = trigoVals.length ? round(trigoVals.reduce((a, b) => a + b, 0) / trigoVals.length) : null;
+        const totalNormal = round(ordenadas.reduce((acc, a) => {
+          const row = (a.summaryTable ?? []).find(r =>
+            r.label.toUpperCase() === 'NORMAL' ||
+            (r.label.toUpperCase().includes('NORMAL') && !r.label.toUpperCase().includes('SIMPLES') && !r.label.toUpperCase().includes('PROJEÇÃO'))
+          );
+          return acc + (row?.icmsAntecipado ?? 0);
+        }, 0));
+        const totalPagoGlobal = round(totalNormal + totalPago);
+        const totalIdealGlobal = round(totalNormal + totalProj);
 
         return (
           <div key={nome} className="px-6 py-6 break-inside-avoid">
@@ -198,6 +207,14 @@ function PrintablePainelReport({ empresasFiltradas, totalEconomiaGeral, trigoMed
                 </tr>
               </tfoot>
             </table>
+            {totalNormal > 0 && (
+              <p className="mt-2 text-[11px] text-slate-500">
+                Cenário global (Normal + Simples): ICMS pago{' '}
+                <span className="font-black text-slate-700">{fmt(totalPagoGlobal)}</span>
+                {' '}· valor ideal projetado{' '}
+                <span className="font-black text-slate-700">{fmt(totalIdealGlobal)}</span>
+              </p>
+            )}
           </div>
         );
       })}

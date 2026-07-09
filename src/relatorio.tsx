@@ -501,6 +501,11 @@ export function PrintOverlayMulti({ auditorias, modo, onDone }: PrintOverlayMult
               <p className="text-base text-slate-500 mt-2">{sorted.length} {sorted.length === 1 ? 'mês analisado' : 'meses analisados'}</p>
             </div>
             <p>
+              Considerando o cenário global da empresa, o valor total pago de ICMS (Normal + Simples Nacional) foi de{' '}
+              <span className="font-bold text-slate-900">{fmtBRL(totalPagoReal)}</span>, enquanto o valor ideal projetado seria de{' '}
+              <span className="font-bold text-slate-900">{fmtBRL(totalProjetadoIdeal)}</span>.
+            </p>
+            <p>
               Recomendamos a análise dos fornecedores listados e a busca por condições comerciais mais favoráveis, como descontos financeiros ou migração para fornecedores do Regime Normal.
             </p>
           </div>
