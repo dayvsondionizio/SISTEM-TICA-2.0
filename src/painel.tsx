@@ -143,10 +143,11 @@ function PrintablePainelReport({ empresasFiltradas, totalEconomiaGeral, trigoMed
                 <tr className="bg-slate-100">
                   <th className="text-left py-1.5 px-2 font-bold uppercase tracking-wider text-slate-500">Mês</th>
                   <th className="text-right py-1.5 px-2 font-bold uppercase tracking-wider text-slate-500">Comerc.</th>
-                  <th className="text-right py-1.5 px-2 font-bold uppercase tracking-wider text-slate-500">Economia</th>
-                  <th className="text-right py-1.5 px-2 font-bold uppercase tracking-wider text-slate-500">ICMS Pago</th>
-                  <th className="text-right py-1.5 px-2 font-bold uppercase tracking-wider text-slate-500">ICMS Projetado</th>
+                  <th className="text-right py-1.5 px-2 font-bold uppercase tracking-wider text-slate-500">C. Trigo</th>
                   <th className="text-right py-1.5 px-2 font-bold uppercase tracking-wider text-slate-500">% Trigo</th>
+                  <th className="text-right py-1.5 px-2 font-bold uppercase tracking-wider text-slate-500">Economia</th>
+                  <th className="text-right py-1.5 px-2 font-bold uppercase tracking-wider text-slate-500">ICMS Projetado</th>
+                  <th className="text-right py-1.5 px-2 font-bold uppercase tracking-wider text-slate-500">ICMS Pago</th>
                   <th className="text-right py-1.5 px-2 font-bold uppercase tracking-wider text-slate-500">Forn. Simples</th>
                 </tr>
               </thead>
@@ -157,19 +158,21 @@ function PrintablePainelReport({ empresasFiltradas, totalEconomiaGeral, trigoMed
                   const pago = round(ativos.reduce((acc, f) => acc + f.icmsPago, 0));
                   const proj = round(ativos.reduce((acc, f) => acc + f.icmsProjetado, 0));
                   const comerc = a.trigoQuestorTotal ?? null;
+                  const cTrigo = a.trigoSelectedTotal ?? null;
                   const pct = a.percentualSistematica;
                   return (
                     <tr key={a.id} className="border-t border-slate-100">
                       <td className="py-1.5 px-2 font-black text-[#001F3F]">{a.mesReferencia}</td>
                       <td className="py-1.5 px-2 text-right text-slate-600 font-semibold">{comerc !== null ? fmt(comerc) : <span className="text-slate-300">—</span>}</td>
-                      <td className="py-1.5 px-2 text-right font-bold text-emerald-700">{fmt(eco)}</td>
-                      <td className="py-1.5 px-2 text-right text-red-600 font-semibold">{fmt(pago)}</td>
-                      <td className="py-1.5 px-2 text-right text-blue-700 font-semibold">{fmt(proj)}</td>
+                      <td className="py-1.5 px-2 text-right text-amber-700 font-semibold">{cTrigo !== null ? fmt(cTrigo) : <span className="text-slate-300">—</span>}</td>
                       <td className="py-1.5 px-2 text-right">
                         {pct !== null && pct !== undefined
                           ? <span className={`font-black ${pct >= 7 ? 'text-emerald-700' : 'text-amber-600'}`}>{fmtPct(pct)}</span>
                           : <span className="text-slate-300">—</span>}
                       </td>
+                      <td className="py-1.5 px-2 text-right font-bold text-emerald-700">{fmt(eco)}</td>
+                      <td className="py-1.5 px-2 text-right text-blue-700 font-semibold">{fmt(proj)}</td>
+                      <td className="py-1.5 px-2 text-right text-red-600 font-semibold">{fmt(pago)}</td>
                       <td className="py-1.5 px-2 text-right text-slate-500 font-bold">{new Set(ativos.map(f => f.nome)).size}</td>
                     </tr>
                   );
@@ -179,12 +182,15 @@ function PrintablePainelReport({ empresasFiltradas, totalEconomiaGeral, trigoMed
                 <tr className="border-t-2 border-slate-300 bg-slate-50">
                   <td className="py-1.5 px-2 font-black text-slate-600 uppercase text-[10px] tracking-wider">Total</td>
                   <td className="py-1.5 px-2 text-right font-black text-slate-600">{totalComerc > 0 ? fmt(totalComerc) : <span className="text-slate-300 font-normal">—</span>}</td>
-                  <td className="py-1.5 px-2 text-right font-black text-emerald-700">{fmt(totalEco)}</td>
-                  <td className="py-1.5 px-2 text-right font-black text-red-600">{fmt(totalPago)}</td>
-                  <td className="py-1.5 px-2 text-right font-black text-blue-700">{fmt(totalProj)}</td>
+                  <td className="py-1.5 px-2 text-right font-black text-amber-700">
+                    {(() => { const t = round(ordenadas.reduce((acc, a) => acc + (a.trigoSelectedTotal ?? 0), 0)); return t > 0 ? fmt(t) : <span className="text-slate-300 font-normal">—</span>; })()}
+                  </td>
                   <td className="py-1.5 px-2 text-right">
                     {trigoMed !== null && <span className={`font-black ${trigoMed >= 7 ? 'text-emerald-700' : 'text-amber-600'}`}>{fmtPct(trigoMed)}</span>}
                   </td>
+                  <td className="py-1.5 px-2 text-right font-black text-emerald-700">{fmt(totalEco)}</td>
+                  <td className="py-1.5 px-2 text-right font-black text-blue-700">{fmt(totalProj)}</td>
+                  <td className="py-1.5 px-2 text-right font-black text-red-600">{fmt(totalPago)}</td>
                   <td className="py-1.5 px-2 text-right font-black text-slate-500">
                     {round(ordenadas.reduce((acc, a) => acc + new Set(a.fornecedores.filter(f => !f.descartado).map(f => f.nome)).size, 0) / (ordenadas.length || 1))}
                     <span className="text-[9px] font-normal">/mês</span>
@@ -301,10 +307,11 @@ function EmpresaCard({ nome, auditorias, temRascunho }: EmpresaCardProps) {
                 <tr className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
                   <th className="text-left py-1.5 pr-4">Mês</th>
                   <th className="text-right pr-4">Comerc.</th>
-                  <th className="text-right pr-4">Economia</th>
-                  <th className="text-right pr-4">ICMS Pago</th>
-                  <th className="text-right pr-4">ICMS Projetado</th>
+                  <th className="text-right pr-4">C. Trigo</th>
                   <th className="text-right pr-4">% Trigo</th>
+                  <th className="text-right pr-4">Economia</th>
+                  <th className="text-right pr-4">ICMS Projetado</th>
+                  <th className="text-right pr-4">ICMS Pago</th>
                   <th className="text-right">Fornec.</th>
                 </tr>
               </thead>
@@ -315,17 +322,19 @@ function EmpresaCard({ nome, auditorias, temRascunho }: EmpresaCardProps) {
                   const pago = round(ativos.reduce((acc, f) => acc + f.icmsPago, 0));
                   const proj = round(ativos.reduce((acc, f) => acc + f.icmsProjetado, 0));
                   const comerc = a.trigoQuestorTotal ?? null;
+                  const cTrigo = a.trigoSelectedTotal ?? null;
                   const uniqueForn = new Set(ativos.map(f => f.nome)).size;
                   return (
                     <tr key={a.id} className="border-t border-slate-50 hover:bg-slate-50 transition-colors">
                       <td className="py-2 pr-4 font-black text-[#001F3F]">{a.mesReferencia}</td>
                       <td className="py-2 pr-4 text-right text-slate-500 font-semibold">{comerc !== null ? fmt(comerc) : <span className="text-slate-300">—</span>}</td>
-                      <td className="py-2 pr-4 text-right font-bold text-emerald-600">{fmt(eco)}</td>
-                      <td className="py-2 pr-4 text-right text-red-500 font-semibold">{fmt(pago)}</td>
-                      <td className="py-2 pr-4 text-right text-blue-600 font-semibold">{fmt(proj)}</td>
+                      <td className="py-2 pr-4 text-right text-amber-600 font-semibold">{cTrigo !== null ? fmt(cTrigo) : <span className="text-slate-300">—</span>}</td>
                       <td className="py-2 pr-4 text-right">
                         <BadgeTrigo pct={a.percentualSistematica ?? null} />
                       </td>
+                      <td className="py-2 pr-4 text-right font-bold text-emerald-600">{fmt(eco)}</td>
+                      <td className="py-2 pr-4 text-right text-blue-600 font-semibold">{fmt(proj)}</td>
+                      <td className="py-2 pr-4 text-right text-red-500 font-semibold">{fmt(pago)}</td>
                       <td className="py-2 text-right text-slate-400 font-bold">{uniqueForn}</td>
                     </tr>
                   );
@@ -337,21 +346,24 @@ function EmpresaCard({ nome, auditorias, temRascunho }: EmpresaCardProps) {
                   <td className="py-2 pr-4 text-right font-black text-slate-600">
                     {(() => { const t = round(ordenadas.reduce((acc, a) => acc + (a.trigoQuestorTotal ?? 0), 0)); return t > 0 ? fmt(t) : <span className="text-slate-300 font-normal">—</span>; })()}
                   </td>
-                  <td className="py-2 pr-4 text-right font-black text-emerald-700">{fmt(totalEconomia)}</td>
-                  <td className="py-2 pr-4 text-right font-black text-red-600">
-                    {fmt(round(ordenadas.reduce((acc, a) => {
-                      const ativos = a.fornecedores.filter(f => !f.descartado);
-                      return acc + ativos.reduce((s, f) => s + f.icmsPago, 0);
-                    }, 0)))}
+                  <td className="py-2 pr-4 text-right font-black text-amber-700">
+                    {(() => { const t = round(ordenadas.reduce((acc, a) => acc + (a.trigoSelectedTotal ?? 0), 0)); return t > 0 ? fmt(t) : <span className="text-slate-300 font-normal">—</span>; })()}
                   </td>
+                  <td className="py-2 pr-4 text-right">
+                    {trigoMedia !== null && <BadgeTrigo pct={trigoMedia} />}
+                  </td>
+                  <td className="py-2 pr-4 text-right font-black text-emerald-700">{fmt(totalEconomia)}</td>
                   <td className="py-2 pr-4 text-right font-black text-blue-700">
                     {fmt(round(ordenadas.reduce((acc, a) => {
                       const ativos = a.fornecedores.filter(f => !f.descartado);
                       return acc + ativos.reduce((s, f) => s + f.icmsProjetado, 0);
                     }, 0)))}
                   </td>
-                  <td className="py-2 pr-4 text-right">
-                    {trigoMedia !== null && <BadgeTrigo pct={trigoMedia} />}
+                  <td className="py-2 pr-4 text-right font-black text-red-600">
+                    {fmt(round(ordenadas.reduce((acc, a) => {
+                      const ativos = a.fornecedores.filter(f => !f.descartado);
+                      return acc + ativos.reduce((s, f) => s + f.icmsPago, 0);
+                    }, 0)))}
                   </td>
                   <td className="py-2 text-right font-black text-slate-500">
                     {round(ordenadas.reduce((acc, a) => acc + new Set(a.fornecedores.filter(f => !f.descartado).map(f => f.nome)).size, 0) / (ordenadas.length || 1))}
