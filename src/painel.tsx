@@ -115,9 +115,7 @@ function PrintablePainelReport({ empresasFiltradas, totalEconomiaGeral, trigoMed
         const totalProj = round(ordenadas.reduce((acc, a) => {
           return acc + a.fornecedores.filter(f => !f.descartado).reduce((s, f) => s + f.icmsProjetado, 0);
         }, 0));
-        const totalComerc = round(ordenadas.reduce((acc, a) => {
-          return acc + a.fornecedores.filter(f => !f.descartado).reduce((s, f) => s + (f.valorTotal || 0), 0);
-        }, 0));
+        const totalComerc = round(ordenadas.reduce((acc, a) => acc + (a.trigoQuestorTotal ?? 0), 0));
         const trigoVals = ordenadas.map(a => a.percentualSistematica).filter((v): v is number => v !== null && v !== undefined);
         const trigoMed = trigoVals.length ? round(trigoVals.reduce((a, b) => a + b, 0) / trigoVals.length) : null;
 
@@ -158,12 +156,12 @@ function PrintablePainelReport({ empresasFiltradas, totalEconomiaGeral, trigoMed
                   const eco = round(ativos.reduce((acc, f) => acc + f.economia, 0));
                   const pago = round(ativos.reduce((acc, f) => acc + f.icmsPago, 0));
                   const proj = round(ativos.reduce((acc, f) => acc + f.icmsProjetado, 0));
-                  const comerc = round(ativos.reduce((acc, f) => acc + (f.valorTotal || 0), 0));
+                  const comerc = a.trigoQuestorTotal ?? null;
                   const pct = a.percentualSistematica;
                   return (
                     <tr key={a.id} className="border-t border-slate-100">
                       <td className="py-1.5 px-2 font-black text-[#001F3F]">{a.mesReferencia}</td>
-                      <td className="py-1.5 px-2 text-right text-slate-600 font-semibold">{fmt(comerc)}</td>
+                      <td className="py-1.5 px-2 text-right text-slate-600 font-semibold">{comerc !== null ? fmt(comerc) : <span className="text-slate-300">—</span>}</td>
                       <td className="py-1.5 px-2 text-right font-bold text-emerald-700">{fmt(eco)}</td>
                       <td className="py-1.5 px-2 text-right text-red-600 font-semibold">{fmt(pago)}</td>
                       <td className="py-1.5 px-2 text-right text-blue-700 font-semibold">{fmt(proj)}</td>
@@ -180,7 +178,7 @@ function PrintablePainelReport({ empresasFiltradas, totalEconomiaGeral, trigoMed
               <tfoot>
                 <tr className="border-t-2 border-slate-300 bg-slate-50">
                   <td className="py-1.5 px-2 font-black text-slate-600 uppercase text-[10px] tracking-wider">Total</td>
-                  <td className="py-1.5 px-2 text-right font-black text-slate-600">{fmt(totalComerc)}</td>
+                  <td className="py-1.5 px-2 text-right font-black text-slate-600">{totalComerc > 0 ? fmt(totalComerc) : <span className="text-slate-300 font-normal">—</span>}</td>
                   <td className="py-1.5 px-2 text-right font-black text-emerald-700">{fmt(totalEco)}</td>
                   <td className="py-1.5 px-2 text-right font-black text-red-600">{fmt(totalPago)}</td>
                   <td className="py-1.5 px-2 text-right font-black text-blue-700">{fmt(totalProj)}</td>
@@ -316,11 +314,11 @@ function EmpresaCard({ nome, auditorias, temRascunho }: EmpresaCardProps) {
                   const eco = round(ativos.reduce((acc, f) => acc + f.economia, 0));
                   const pago = round(ativos.reduce((acc, f) => acc + f.icmsPago, 0));
                   const proj = round(ativos.reduce((acc, f) => acc + f.icmsProjetado, 0));
-                  const comerc = round(ativos.reduce((acc, f) => acc + (f.valorTotal || 0), 0));
+                  const comerc = a.trigoQuestorTotal ?? null;
                   return (
                     <tr key={a.id} className="border-t border-slate-50 hover:bg-slate-50 transition-colors">
                       <td className="py-2 pr-4 font-black text-[#001F3F]">{a.mesReferencia}</td>
-                      <td className="py-2 pr-4 text-right text-slate-500 font-semibold">{fmt(comerc)}</td>
+                      <td className="py-2 pr-4 text-right text-slate-500 font-semibold">{comerc !== null ? fmt(comerc) : <span className="text-slate-300">—</span>}</td>
                       <td className="py-2 pr-4 text-right font-bold text-emerald-600">{fmt(eco)}</td>
                       <td className="py-2 pr-4 text-right text-red-500 font-semibold">{fmt(pago)}</td>
                       <td className="py-2 pr-4 text-right text-blue-600 font-semibold">{fmt(proj)}</td>
@@ -336,10 +334,7 @@ function EmpresaCard({ nome, auditorias, temRascunho }: EmpresaCardProps) {
                 <tr className="border-t-2 border-slate-200">
                   <td className="py-2 pr-4 font-black text-slate-600 text-[10px] uppercase tracking-wider">Total</td>
                   <td className="py-2 pr-4 text-right font-black text-slate-600">
-                    {fmt(round(ordenadas.reduce((acc, a) => {
-                      const ativos = a.fornecedores.filter(f => !f.descartado);
-                      return acc + ativos.reduce((s, f) => s + (f.valorTotal || 0), 0);
-                    }, 0)))}
+                    {(() => { const t = round(ordenadas.reduce((acc, a) => acc + (a.trigoQuestorTotal ?? 0), 0)); return t > 0 ? fmt(t) : <span className="text-slate-300 font-normal">—</span>; })()}
                   </td>
                   <td className="py-2 pr-4 text-right font-black text-emerald-700">{fmt(totalEconomia)}</td>
                   <td className="py-2 pr-4 text-right font-black text-red-600">
