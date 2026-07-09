@@ -496,14 +496,10 @@ export function PrintOverlayMulti({ auditorias, modo, onDone }: PrintOverlayMult
               Se os mesmos produtos tivessem sido adquiridos de fornecedores do Regime Normal, o ICMS seria de apenas{' '}
               <span className="font-bold text-slate-900">{fmtBRL(totalProjetado)}</span>.
             </p>
-            <p className="text-3xl font-black text-red-600">
-              Diferença acumulada no período: {fmtBRL(totalDiff)}
-            </p>
-            <p>
-              Considerando o cenário global, o valor total de ICMS pago foi de{' '}
-              <span className="font-bold text-slate-900">{fmtBRL(totalPagoReal)}</span>, enquanto o valor ideal projetado seria de{' '}
-              <span className="font-bold text-slate-900">{fmtBRL(totalProjetadoIdeal)}</span>.
-            </p>
+            <div className="bg-red-50 border-l-4 border-red-500 p-6 rounded-r-2xl">
+              <p className="text-3xl font-black text-red-600">Diferença acumulada no período: {fmtBRL(totalDiff)}</p>
+              <p className="text-base text-slate-500 mt-2">{sorted.length} {sorted.length === 1 ? 'mês analisado' : 'meses analisados'}</p>
+            </div>
             <p>
               Recomendamos a análise dos fornecedores listados e a busca por condições comerciais mais favoráveis, como descontos financeiros ou migração para fornecedores do Regime Normal.
             </p>
@@ -580,6 +576,33 @@ export function PrintOverlayMulti({ auditorias, modo, onDone }: PrintOverlayMult
                 );
               })}
             </tbody>
+            <tfoot>
+              {(() => {
+                const totalQuestor = sorted.reduce((acc, a) => acc + (a.trigoQuestorTotal ?? 0), 0);
+                const totalSelected = sorted.reduce((acc, a) => acc + (a.trigoSelectedTotal ?? 0), 0);
+                const totalPct = totalQuestor > 0 ? (totalSelected / totalQuestor) * 100 : null;
+                const totalOk = totalPct !== null && totalPct >= 7;
+                return (
+                  <tr className="bg-[#001F3F] text-white font-black text-sm">
+                    <td className="p-3">TOTAL</td>
+                    <td className="p-3 text-right">{totalQuestor > 0 ? fmtBRL(totalQuestor) : <span className="text-white/40">—</span>}</td>
+                    <td className="p-3 text-right text-amber-300">{totalSelected > 0 ? fmtBRL(totalSelected) : <span className="text-white/40">—</span>}</td>
+                    <td className="p-3 text-right">
+                      {totalPct !== null
+                        ? <span className={`text-xs font-black px-2 py-0.5 rounded-full ${totalOk ? 'bg-emerald-400 text-emerald-900' : 'bg-amber-400 text-amber-900'}`}>
+                            {totalPct.toFixed(2).replace('.', ',')}%
+                          </span>
+                        : <span className="text-white/40">—</span>}
+                    </td>
+                    <td className="p-3 text-center font-black">
+                      {totalPct !== null
+                        ? <span className={totalOk ? 'text-emerald-300' : 'text-red-300'}>{totalOk ? '✓ Aprovado' : '✗ Reprovado'}</span>
+                        : <span className="text-white/40">—</span>}
+                    </td>
+                  </tr>
+                );
+              })()}
+            </tfoot>
           </table>
         </div>
 

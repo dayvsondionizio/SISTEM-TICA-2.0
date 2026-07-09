@@ -32,6 +32,7 @@ export function ModalSalvar({ onConfirm, onClose, economiaTotal, nomeCliente, me
     const d = new Date();
     return `${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
   });
+  const [confirmando, setConfirmando] = useState(false);
 
   return (
     <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
@@ -90,12 +91,16 @@ export function ModalSalvar({ onConfirm, onClose, economiaTotal, nomeCliente, me
             Cancelar
           </button>
           <button
-            onClick={() => mes.trim() && onConfirm(nomeCliente, mes.trim())}
-            disabled={!mes.trim()}
+            onClick={() => {
+              if (!mes.trim() || confirmando) return;
+              setConfirmando(true);
+              onConfirm(nomeCliente, mes.trim());
+            }}
+            disabled={!mes.trim() || confirmando}
             className="flex-1 py-3 bg-[#001F3F] hover:bg-[#002d5c] disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-xl font-bold transition-colors flex items-center justify-center gap-2"
           >
             <Save className="w-4 h-4" />
-            Salvar
+            {confirmando ? 'Salvando...' : 'Salvar'}
           </button>
         </div>
       </div>
