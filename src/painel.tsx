@@ -116,8 +116,8 @@ function PrintablePainelReport({ empresasFiltradas, totalEconomiaGeral, trigoMed
           return acc + a.fornecedores.filter(f => !f.descartado).reduce((s, f) => s + f.icmsProjetado, 0);
         }, 0));
         const totalComerc = round(ordenadas.reduce((acc, a) => acc + (a.trigoQuestorTotal ?? 0), 0));
-        const trigoVals = ordenadas.map(a => a.percentualSistematica).filter((v): v is number => v !== null && v !== undefined);
-        const trigoMed = trigoVals.length ? round(trigoVals.reduce((a, b) => a + b, 0) / trigoVals.length) : null;
+        const totalTrigoSel = round(ordenadas.reduce((acc, a) => acc + (a.trigoSelectedTotal ?? 0), 0));
+        const trigoMed = totalComerc > 0 ? round((totalTrigoSel / totalComerc) * 100) : null;
         const totalNormal = round(ordenadas.reduce((acc, a) => {
           const row = (a.summaryTable ?? []).find(r =>
             r.label.toUpperCase() === 'NORMAL' ||
@@ -239,12 +239,12 @@ function EmpresaCard({ nome, auditorias, temRascunho }: EmpresaCardProps) {
   const totalEconomia = round(ordenadas.reduce((acc, a) => acc + economiaAtiva(a), 0));
   const mediaMensal = ordenadas.length > 0 ? round(totalEconomia / ordenadas.length) : 0;
 
+  const trigoComercTotal = round(ordenadas.reduce((acc, a) => acc + (a.trigoQuestorTotal ?? 0), 0));
+  const trigoSelTotal = round(ordenadas.reduce((acc, a) => acc + (a.trigoSelectedTotal ?? 0), 0));
+  const trigoMedia = trigoComercTotal > 0 ? round((trigoSelTotal / trigoComercTotal) * 100) : null;
   const trigoVals = ordenadas
     .map(a => a.percentualSistematica)
     .filter((v): v is number => v !== null && v !== undefined);
-  const trigoMedia = trigoVals.length > 0
-    ? round(trigoVals.reduce((a, b) => a + b, 0) / trigoVals.length)
-    : null;
 
   const ultimo = ordenadas[0]?.mesReferencia ?? '—';
   const qtdMeses = ordenadas.length;
@@ -516,8 +516,10 @@ export function TelaPainelGeral({ onClose }: PainelProps) {
   const trigoTodos = filtrado
     .map(a => a.percentualSistematica)
     .filter((v): v is number => v !== null && v !== undefined);
-  const trigoMediaGeral = trigoTodos.length
-    ? round(trigoTodos.reduce((a, b) => a + b, 0) / trigoTodos.length)
+  const trigoComercGeral = round(filtrado.reduce((acc, a) => acc + (a.trigoQuestorTotal ?? 0), 0));
+  const trigoSelGeral = round(filtrado.reduce((acc, a) => acc + (a.trigoSelectedTotal ?? 0), 0));
+  const trigoMediaGeral = trigoComercGeral > 0
+    ? round((trigoSelGeral / trigoComercGeral) * 100)
     : null;
   const trigoOk = trigoTodos.filter(v => v >= 7).length;
   const comRascunho = Array.from(empresas.keys()).filter(n => rascunhosNomes.has(n)).length;
