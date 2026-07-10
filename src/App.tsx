@@ -2133,7 +2133,7 @@ NENHUMA PALAVRA OU EXPLICAÇÃO DEVE SER ESCRITA NA RESPOSTA ALÉM DO ARRAY JSON
             const fValueIdx = ['VALOR TOTAL', 'VLR CONTABIL', 'VALOR CONTÁBIL'].reduce((acc, n) => acc !== -1 ? acc : fFindCol(n), -1);
             const fNcmIdx = ['NCM', 'CLASSIFICAÇÃO FISCAL', 'CLASSIFICACAO FISCAL'].reduce((acc, n) => acc !== -1 ? acc : fFindCol(n), -1);
 
-            const BAKERY_NCMS = ['11010010', '19012000'];
+            const BAKERY_NCMS = ['11010010', '19012000', '19012090'];
 
             if (fDescIdx !== -1 && fNcmIdx !== -1) {
               for (let i = 1; i < firstSheetData2.length; i++) {
