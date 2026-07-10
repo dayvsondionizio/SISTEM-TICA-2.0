@@ -154,7 +154,7 @@ function PrintablePainelReport({ empresasFiltradas, totalEconomiaGeral, trigoMed
                   <th className="text-right py-2 px-3 font-bold uppercase tracking-wider text-slate-500">Comerc.</th>
                   <th className="text-right py-2 px-3 font-bold uppercase tracking-wider text-slate-500">C. Trigo</th>
                   <th className="text-right py-2 px-3 font-bold uppercase tracking-wider text-slate-500">% Trigo</th>
-                  <th className="text-right py-2 px-3 font-bold uppercase tracking-wider text-slate-500">Teria Economia</th>
+                  <th className="text-right py-2 px-3 font-bold uppercase tracking-wider text-slate-500">Teria Economizado</th>
                   <th className="text-right py-2 px-3 font-bold uppercase tracking-wider text-slate-500">ICMS Simulado Forn. Simples</th>
                   <th className="text-right py-2 px-3 font-bold uppercase tracking-wider text-slate-500">ICMS Pago (Simples)</th>
                   <th className="text-right py-2 px-3 font-bold uppercase tracking-wider text-slate-500">ICMS Total</th>
@@ -317,7 +317,7 @@ function EmpresaCard({ nome, auditorias, temRascunho }: EmpresaCardProps) {
                   <th className="text-right pr-4">Comerc.</th>
                   <th className="text-right pr-4">C. Trigo</th>
                   <th className="text-right pr-4">% Trigo</th>
-                  <th className="text-right pr-4">Teria Economia</th>
+                  <th className="text-right pr-4">Teria Economizado</th>
                   <th className="text-right pr-4">ICMS Simulado Forn. Simples</th>
                   <th className="text-right pr-4">ICMS Pago (Simples)</th>
                   <th className="text-right pr-4">ICMS Total</th>
