@@ -621,7 +621,7 @@ function BakeryPanel({ allProducts, questorTotal, onUpdatePrintData, onPrint, wo
             <span className="text-3xl">🌾</span>
             <div>
               <h3 className="text-2xl font-black tracking-tight">Sistemática de Panificação</h3>
-              <p className="text-amber-100 text-sm">Itens NCM 1101.00.10 e 1901.20.00 — Classificação fiscal de farinha e pré-misturas</p>
+              <p className="text-amber-100 text-sm">Itens NCM 1101.00.10, 1901.20.00 e 1901.20.90 — Classificação fiscal de farinha e pré-misturas</p>
             </div>
           </div>
           {bakeryItems.length > 0 && (
