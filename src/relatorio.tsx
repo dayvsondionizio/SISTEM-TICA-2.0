@@ -693,9 +693,10 @@ interface PrintOverlayProps {
   auditoria: AuditoriaSalva;
   modo: 'icms' | 'trigo';
   onDone: () => void;
+  incluirTrigo?: boolean;
 }
 
-export function PrintOverlay({ auditoria, modo, onDone }: PrintOverlayProps) {
+export function PrintOverlay({ auditoria, modo, onDone, incluirTrigo = true }: PrintOverlayProps) {
   // monta dados de fornecedores ativos → formato SimplesSupplierData
   const rnd = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
   const ativos = auditoria.fornecedores.filter(f => !f.descartado);
@@ -730,7 +731,7 @@ export function PrintOverlay({ auditoria, modo, onDone }: PrintOverlayProps) {
     { label: 'Diferença (Economia)', valorTotal: 0, icmsAntecipado: rnd(totalPagoReal - totalProjetadoIdeal) },
   ];
 
-  const wheatForIcms = auditoria.trigoItens && auditoria.trigoItens.length > 0
+  const wheatForIcms = incluirTrigo && auditoria.trigoItens && auditoria.trigoItens.length > 0
     ? {
         isConfirmed: true,
         questorTotal: auditoria.trigoQuestorTotal,
