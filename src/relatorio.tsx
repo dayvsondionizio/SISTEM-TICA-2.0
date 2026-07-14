@@ -414,9 +414,10 @@ export function PrintOverlayMulti({ auditorias, modo, onDone }: PrintOverlayMult
                 <td className="p-3 text-right text-[#F5C000]">{fmtBRL(totalEconomia)}</td>
                 <td className="p-3 text-center">
                   {(() => {
-                    const vals = sorted.map(a => a.percentualSistematica).filter((v): v is number => v !== null && v !== undefined);
-                    if (!vals.length) return <span className="text-white/40">—</span>;
-                    const media = rnd(vals.reduce((a, b) => a + b, 0) / vals.length);
+                    const totalQuestorAll = sorted.reduce((acc, a) => acc + (a.trigoQuestorTotal ?? 0), 0);
+                    const totalSelectedAll = sorted.reduce((acc, a) => acc + (a.trigoSelectedTotal ?? 0), 0);
+                    if (!totalQuestorAll) return <span className="text-white/40">—</span>;
+                    const media = rnd((totalSelectedAll / totalQuestorAll) * 100);
                     return (
                       <span className={`text-xs font-black px-2 py-0.5 rounded-full ${media >= 7 ? 'bg-emerald-400 text-emerald-900' : 'bg-amber-400 text-amber-900'}`}>
                         🌾 {media.toFixed(2).replace('.', ',')}%
