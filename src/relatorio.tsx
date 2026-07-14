@@ -313,15 +313,45 @@ export function PrintOverlayMulti({ auditorias, modo, onDone }: PrintOverlayMult
   const MESES_NOMES = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
 
   useEffect(() => {
+    const originalTitle = document.title;
+
+    // Monta label do período baseado na quantidade e posição dos meses
+    const getPeriodoLabel = () => {
+      const n = sorted.length;
+      const ano = sorted[0]?.mesReferencia?.split('/')[1] ?? '';
+      const primeiroMes = parseInt(sorted[0]?.mesReferencia?.split('/')[0] ?? '1');
+
+      if (n === 6) {
+        const sem = primeiroMes <= 6 ? '1º' : '2º';
+        return `${sem} SEMESTRE ${ano}`;
+      }
+      if (n === 3) {
+        const tri = Math.ceil(primeiroMes / 3);
+        return `${tri}º TRIMESTRE ${ano}`;
+      }
+      if (n === 2) {
+        const bi = Math.ceil(primeiroMes / 2);
+        return `${bi}º BIMESTRE ${ano}`;
+      }
+      // Qualquer outra quantidade: usa o intervalo
+      const fim = sorted[sorted.length - 1]?.mesReferencia ?? '';
+      return sorted[0]?.mesReferencia === fim
+        ? `${sorted[0]?.mesReferencia?.replace('/', '-')}`
+        : `${sorted[0]?.mesReferencia?.replace('/', '-')} a ${fim.replace('/', '-')}`;
+    };
+
+    const tipoLabel = modo === 'trigo' ? 'SISTEMATICA PANIFICACAO CONSOLIDADO' : 'IMPACTO TRIBUTARIO CONSOLIDADO COMPRAS FOR SN';
+    document.title = `${tipoLabel} - ${empresa} ${getPeriodoLabel()}`;
+
     let t: ReturnType<typeof setTimeout>;
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         t = setTimeout(() => { window.print(); }, 800);
       });
     });
-    const handleAfterPrint = () => onDone();
+    const handleAfterPrint = () => { document.title = originalTitle; onDone(); };
     window.addEventListener('afterprint', handleAfterPrint);
-    return () => { clearTimeout(t); window.removeEventListener('afterprint', handleAfterPrint); };
+    return () => { clearTimeout(t); window.removeEventListener('afterprint', handleAfterPrint); document.title = originalTitle; };
   }, []);
 
   const contentIcms = (
