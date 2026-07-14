@@ -754,24 +754,28 @@ export function PrintOverlay({ auditoria, modo, onDone, incluirTrigo = true }: P
     : null;
 
   useEffect(() => {
-    // Aguarda 2 frames de pintura + 800ms para Tailwind aplicar estilos,
-    // depois imprime. Usar rAF duplo garante que o DOM foi pintado.
+    const mes = auditoria.mesReferencia?.replace('/', '-') ?? '';
+    const empresa = auditoria.nomeEmpresa ?? '';
+    const tipoLabel = modo === 'trigo' ? 'SISTEMATICA PANIFICACAO' : 'IMPACTO TRIBUTARIO COMPRAS FOR SN';
+    const originalTitle = document.title;
+    document.title = `${tipoLabel} - ${empresa} (PERIODO ${mes})`;
+
     let t: ReturnType<typeof setTimeout>;
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         t = setTimeout(() => {
           window.print();
-          // onDone é chamado via afterprint para não fechar antes de salvar
         }, 800);
       });
     });
 
-    const handleAfterPrint = () => onDone();
+    const handleAfterPrint = () => { document.title = originalTitle; onDone(); };
     window.addEventListener('afterprint', handleAfterPrint);
 
     return () => {
       clearTimeout(t);
       window.removeEventListener('afterprint', handleAfterPrint);
+      document.title = originalTitle;
     };
   }, []);
 
