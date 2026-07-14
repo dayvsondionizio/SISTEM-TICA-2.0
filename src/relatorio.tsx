@@ -758,7 +758,7 @@ export function PrintOverlay({ auditoria, modo, onDone, incluirTrigo = true }: P
     const empresa = auditoria.nomeEmpresa ?? '';
     const tipoLabel = modo === 'trigo' ? 'SISTEMATICA PANIFICACAO' : 'IMPACTO TRIBUTARIO COMPRAS FOR SN';
     const originalTitle = document.title;
-    document.title = `${tipoLabel} - ${empresa} (PERIODO ${mes})`;
+    document.title = `${tipoLabel} - ${empresa} ${mes}`;
 
     let t: ReturnType<typeof setTimeout>;
     requestAnimationFrame(() => {
