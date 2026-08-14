@@ -22,7 +22,8 @@ const round = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
 const INK = '#17150F';
 const GOLD = '#9A7B12';
 const GOLD_LIGHT = '#E7C453';
-const NEGATIVE = '#8B3A3A';
+const POSITIVE = '#3F6B4A';
+const NEGATIVE = '#A33B3B';
 
 const thCls = 'py-3 pr-3 text-left text-[10px] uppercase tracking-wider text-[#78736A] font-medium';
 const thClsRight = 'py-3 pl-3 text-right text-[10px] uppercase tracking-wider text-[#78736A] font-medium';
@@ -237,14 +238,14 @@ export function PrintableTrigoReport({ wheatPrintData }: TrigoReportProps) {
         <div className="flex items-center justify-between mb-14">
           <div>
             <p className="text-lg font-medium text-[#17150F] mb-2">Resultado da Regra dos 7%:</p>
-            <p className="font-display text-[42px] leading-none tabular-nums" style={{ color: wheatPrintData.isOk ? GOLD : NEGATIVE }}>
+            <p className="font-display font-semibold text-[42px] leading-none tabular-nums" style={{ color: wheatPrintData.isOk ? POSITIVE : NEGATIVE }}>
               {wheatPrintData.percentage ? `${wheatPrintData.percentage.toFixed(2).replace('.', ',')}%` : '0,00%'}
             </p>
           </div>
           <div className="text-right">
             {wheatPrintData.isOk
-              ? <span className="font-display italic text-[36px]" style={{ color: GOLD }}>APROVADO</span>
-              : <span className="font-display italic text-[36px]" style={{ color: NEGATIVE }}>REPROVADO</span>}
+              ? <span className="font-display italic font-semibold text-[36px]" style={{ color: POSITIVE }}>APROVADO</span>
+              : <span className="font-display italic font-semibold text-[36px]" style={{ color: NEGATIVE }}>REPROVADO</span>}
           </div>
         </div>
 
@@ -452,7 +453,7 @@ export function PrintOverlayMulti({ auditorias, modo, onDone }: PrintOverlayMult
                     <td className="py-3 pr-3 text-right tabular-nums font-semibold" style={{ color: GOLD }}>{fmtBRL(eco)}</td>
                     <td className="py-3 pl-3 text-center tabular-nums">
                       {pct !== null && pct !== undefined
-                        ? <span className="font-semibold" style={{ color: pct >= 7 ? GOLD : NEGATIVE }}>{pct.toFixed(2).replace('.', ',')}%</span>
+                        ? <span className="font-bold" style={{ color: pct >= 7 ? POSITIVE : NEGATIVE }}>{pct.toFixed(2).replace('.', ',')}%</span>
                         : <span className="text-[#A29C92]">—</span>}
                     </td>
                   </tr>
@@ -471,7 +472,7 @@ export function PrintOverlayMulti({ auditorias, modo, onDone }: PrintOverlayMult
                     const totalSelectedAll = sorted.reduce((acc, a) => acc + (a.trigoSelectedTotal ?? 0), 0);
                     if (!totalQuestorAll) return <span className="text-[#A29C92]">—</span>;
                     const media = rnd((totalSelectedAll / totalQuestorAll) * 100);
-                    return <span style={{ color: media >= 7 ? GOLD : NEGATIVE }}>{media.toFixed(2).replace('.', ',')}%</span>;
+                    return <span className="font-bold" style={{ color: media >= 7 ? POSITIVE : NEGATIVE }}>{media.toFixed(2).replace('.', ',')}%</span>;
                   })()}
                 </td>
               </tr>
@@ -493,8 +494,8 @@ export function PrintOverlayMulti({ auditorias, modo, onDone }: PrintOverlayMult
                 <span className="text-[13px] text-[#78736A]">Fornecedores do Simples Nacional</span>
                 {a.percentualSistematica !== null && a.percentualSistematica !== undefined && (
                   <span
-                    className="ml-auto text-[13px] font-semibold"
-                    style={{ color: a.regra7pctAtendida ? GOLD : NEGATIVE }}
+                    className="ml-auto text-[13px] font-bold"
+                    style={{ color: a.regra7pctAtendida ? POSITIVE : NEGATIVE }}
                   >
                     {a.percentualSistematica.toFixed(2).replace('.', ',')}%
                   </span>
@@ -629,12 +630,12 @@ export function PrintOverlayMulti({ auditorias, modo, onDone }: PrintOverlayMult
                     </td>
                     <td className="py-3 pr-3 text-right tabular-nums">
                       {pct !== null && pct !== undefined
-                        ? <span className="font-semibold" style={{ color: pct >= 7 ? GOLD : NEGATIVE }}>{pct.toFixed(2).replace('.', ',')}%</span>
+                        ? <span className="font-bold" style={{ color: pct >= 7 ? POSITIVE : NEGATIVE }}>{pct.toFixed(2).replace('.', ',')}%</span>
                         : <span className="text-[#A29C92]">—</span>}
                     </td>
                     <td className="py-3 pl-3 text-center font-semibold">
                       {ok !== null && ok !== undefined
-                        ? <span style={{ color: ok ? GOLD : NEGATIVE }}>{ok ? 'Aprovado' : 'Reprovado'}</span>
+                        ? <span className="font-bold" style={{ color: ok ? POSITIVE : NEGATIVE }}>{ok ? 'Aprovado' : 'Reprovado'}</span>
                         : <span className="text-[#A29C92]">—</span>}
                     </td>
                   </tr>
@@ -654,12 +655,12 @@ export function PrintOverlayMulti({ auditorias, modo, onDone }: PrintOverlayMult
                     <td className="py-4 pr-3 text-right tabular-nums" style={{ color: GOLD }}>{totalSelected > 0 ? fmtBRL(totalSelected) : <span className="text-[#A29C92]">—</span>}</td>
                     <td className="py-4 pr-3 text-right tabular-nums">
                       {totalPct !== null
-                        ? <span style={{ color: totalOk ? GOLD : NEGATIVE }}>{totalPct.toFixed(2).replace('.', ',')}%</span>
+                        ? <span className="font-bold" style={{ color: totalOk ? POSITIVE : NEGATIVE }}>{totalPct.toFixed(2).replace('.', ',')}%</span>
                         : <span className="text-[#A29C92]">—</span>}
                     </td>
                     <td className="py-4 pl-3 text-center">
                       {totalPct !== null
-                        ? <span style={{ color: totalOk ? GOLD : NEGATIVE }}>{totalOk ? 'Aprovado' : 'Reprovado'}</span>
+                        ? <span className="font-bold" style={{ color: totalOk ? POSITIVE : NEGATIVE }}>{totalOk ? 'Aprovado' : 'Reprovado'}</span>
                         : <span className="text-[#A29C92]">—</span>}
                     </td>
                   </tr>
@@ -678,7 +679,7 @@ export function PrintOverlayMulti({ auditorias, modo, onDone }: PrintOverlayMult
               <div className="flex items-baseline gap-3 mb-4 pb-3 border-b border-[#E5E0D6]">
                 <h3 className="font-display text-lg text-[#17150F]">{a.mesReferencia}</h3>
                 {a.percentualSistematica !== null && a.percentualSistematica !== undefined && (
-                  <span className="text-[13px] font-semibold" style={{ color: a.regra7pctAtendida ? GOLD : NEGATIVE }}>
+                  <span className="text-[13px] font-bold" style={{ color: a.regra7pctAtendida ? POSITIVE : NEGATIVE }}>
                     {a.percentualSistematica.toFixed(2).replace('.', ',')}% {a.regra7pctAtendida ? '— APROVADO' : '— REPROVADO'}
                   </span>
                 )}

@@ -66,7 +66,10 @@ function BadgeTrigo({ pct }: { pct: number | null }) {
 const P_INK = '#17150F';
 const P_GOLD = '#9A7B12';
 const P_GOLD_LIGHT = '#E7C453';
-const P_NEGATIVE = '#8B3A3A';
+const P_POSITIVE = '#3F6B4A';
+const P_POSITIVE_LIGHT = '#8FBF9A';
+const P_NEGATIVE = '#A33B3B';
+const P_NEGATIVE_LIGHT = '#D98C8C';
 const pThCls = 'text-left py-3 px-3 text-[10px] uppercase tracking-wider text-[#78736A] font-medium';
 const pThClsRight = 'text-right py-3 px-3 text-[10px] uppercase tracking-wider text-[#78736A] font-medium';
 const pRowCls = (idx: number) => `border-b border-[#EFEBE3] ${idx % 2 === 0 ? 'bg-[#F7F5EF]' : 'bg-transparent'}`;
@@ -110,7 +113,7 @@ function PrintablePainelReport({ empresasFiltradas, totalEconomiaGeral, trigoMed
           {trigoMediaGeral !== null && (
             <div>
               <p className="text-[#A29C92] text-[10px] font-medium uppercase tracking-widest">% Trigo Médio</p>
-              <p className="font-display text-[28px] leading-tight tabular-nums" style={{ color: trigoMediaGeral >= 7 ? P_GOLD_LIGHT : '#C97A7A' }}>{fmtPct(trigoMediaGeral)}</p>
+              <p className="font-display font-semibold text-[28px] leading-tight tabular-nums" style={{ color: trigoMediaGeral >= 7 ? P_POSITIVE_LIGHT : P_NEGATIVE_LIGHT }}>{fmtPct(trigoMediaGeral)}</p>
               <p className="text-[#A29C92] text-[11px] mt-0.5">{trigoOk}/{trigoTotal} meses ≥7%</p>
             </div>
           )}
@@ -156,7 +159,7 @@ function PrintablePainelReport({ empresasFiltradas, totalEconomiaGeral, trigoMed
                 {trigoMed !== null && (
                   <div>
                     <p className="text-[#78736A] font-medium uppercase tracking-wider">% Trigo Médio</p>
-                    <p className="font-semibold tabular-nums" style={{ color: trigoMed >= 7 ? P_GOLD : P_NEGATIVE }}>{fmtPct(trigoMed)}</p>
+                    <p className="font-bold tabular-nums" style={{ color: trigoMed >= 7 ? P_POSITIVE : P_NEGATIVE }}>{fmtPct(trigoMed)}</p>
                   </div>
                 )}
               </div>
@@ -195,7 +198,7 @@ function PrintablePainelReport({ empresasFiltradas, totalEconomiaGeral, trigoMed
                       <td className="py-2 px-3 text-right tabular-nums font-medium" style={{ color: P_GOLD }}>{cTrigo !== null ? fmt(cTrigo) : <span className="text-[#A29C92]">—</span>}</td>
                       <td className="py-2 px-3 text-right tabular-nums">
                         {pct !== null && pct !== undefined
-                          ? <span className="font-semibold" style={{ color: pct >= 7 ? P_GOLD : P_NEGATIVE }}>{fmtPct(pct)}</span>
+                          ? <span className="font-bold" style={{ color: pct >= 7 ? P_POSITIVE : P_NEGATIVE }}>{fmtPct(pct)}</span>
                           : <span className="text-[#A29C92]">—</span>}
                       </td>
                       <td className="py-2 px-3 text-right tabular-nums font-medium text-[#17150F]">{fmt(eco)}</td>
@@ -215,7 +218,7 @@ function PrintablePainelReport({ empresasFiltradas, totalEconomiaGeral, trigoMed
                     {(() => { const t = round(ordenadas.reduce((acc, a) => acc + (a.trigoSelectedTotal ?? 0), 0)); return t > 0 ? fmt(t) : <span className="text-[#A29C92] font-normal">—</span>; })()}
                   </td>
                   <td className="py-3 px-3 text-right tabular-nums">
-                    {trigoMed !== null && <span style={{ color: trigoMed >= 7 ? P_GOLD : P_NEGATIVE }}>{fmtPct(trigoMed)}</span>}
+                    {trigoMed !== null && <span className="font-bold" style={{ color: trigoMed >= 7 ? P_POSITIVE : P_NEGATIVE }}>{fmtPct(trigoMed)}</span>}
                   </td>
                   <td className="py-3 px-3 text-right tabular-nums">{fmt(totalEco)}</td>
                   <td className="py-3 px-3 text-right tabular-nums">{fmt(totalProj)}</td>
