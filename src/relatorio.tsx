@@ -1,6 +1,5 @@
 import React, { useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { AlertCircle } from 'lucide-react';
 import type { AuditoriaSalva, SummaryRowSalvo } from './storage';
 
 // ─── TIPOS INTERNOS (espelham os de App.tsx) ─────────────────────────────────
@@ -17,6 +16,18 @@ const fmtBRL = (v: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
 const round = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
 
+// ─── PADRÃO VISUAL · CONTADOR DE PADARIAS ────────────────────────────────────
+// Paleta: papel off-white, tinta quase-preta, dourado de destaque, bloco escuro.
+// Tipografia: Newsreader (serif, títulos/números) + IBM Plex Sans (corpo/tabelas).
+const INK = '#17150F';
+const GOLD = '#9A7B12';
+const GOLD_LIGHT = '#E7C453';
+const NEGATIVE = '#8B3A3A';
+
+const thCls = 'py-3 pr-3 text-left text-[10px] uppercase tracking-wider text-[#78736A] font-medium';
+const thClsRight = 'py-3 pl-3 text-right text-[10px] uppercase tracking-wider text-[#78736A] font-medium';
+const rowCls = (idx: number) => `border-b border-[#EFEBE3] ${idx % 2 === 0 ? 'bg-[#F7F5EF]' : 'bg-transparent'}`;
+
 // ─── RELATÓRIO ICMS (idêntico ao PrintableReport de App.tsx) ─────────────────
 interface IcmsReportProps {
   data: SimplesSupplierData[];
@@ -27,7 +38,6 @@ interface IcmsReportProps {
 }
 
 export function PrintableIcmsReport({ data, summaryTable, fileName, mes, wheatPrintData }: IcmsReportProps) {
-  const dateStr     = new Date().toLocaleDateString('pt-BR');
   const companyName = fileName.replace('AUDITORIA_', '').split('.')[0].replace(/_/g, ' ').toUpperCase();
 
   const totalSimples    = round(summaryTable.find(r => r.label.toUpperCase().includes('SIMPLES NACIONAL'))?.icmsAntecipado || 0);
@@ -42,40 +52,40 @@ export function PrintableIcmsReport({ data, summaryTable, fileName, mes, wheatPr
   const totalDiff       = round(totalPagoReal - totalProjetadoIdeal);
 
   return (
-    <div className="bg-slate-200 py-12 print:p-0 print:bg-white text-slate-900 font-sans">
+    <div className="bg-[#EDEAE2] py-12 print:p-0 print:bg-white text-[#17150F] font-report">
       <div className="max-w-[210mm] mx-auto space-y-12 print:space-y-0 shadow-2xl print:shadow-none">
 
         {/* Página 1: Capa */}
-        <div className="min-h-[297mm] bg-[#001F3F] text-white flex flex-col justify-between p-20 relative overflow-hidden break-after-page">
-          <div className="relative z-10">
-            <div className="mt-40 space-y-4">
-              <h1 className="text-[120px] font-black leading-[0.8] tracking-tighter">Impacto</h1>
-              <h1 className="text-[120px] font-black leading-[0.8] tracking-tighter">Tributário</h1>
-              <p className="text-2xl font-bold mt-12 border-b-2 border-white/20 pb-4 inline-block">
-                nas Compras de Fornecedores do Simples Nacional
-              </p>
-            </div>
+        <div className="min-h-[297mm] bg-[#17150F] text-[#FCFBF8] flex flex-col justify-between p-16 break-after-page">
+          <div className="flex items-start justify-between">
+            <img src="/logo-white.png" alt="Contador de Padarias" className="h-10 w-auto" />
+            <p className="text-[10px] tracking-[0.3em] uppercase text-[#CFC9BE]">Relatório Estratégico Tributário</p>
           </div>
-          <div className="relative z-10 text-right">
-            <p className="text-lg font-medium text-slate-300">
-              Análise estratégica para empresa <span className="text-white font-bold">{companyName}</span>
+          <div className="space-y-4 max-w-2xl">
+            <h1 className="font-display text-[56px] leading-[1.05]">Impacto</h1>
+            <h1 className="font-display text-[56px] leading-[1.05]">Tributário</h1>
+            <p className="font-display italic text-xl text-[#E7C453] mt-6 pb-4 border-b border-white/15 inline-block max-w-lg leading-snug">
+              nas Compras de Fornecedores do Simples Nacional
             </p>
-            {mes && (
-              <p className="text-base font-medium text-[#F5C000] mt-1">{mes}</p>
-            )}
+          </div>
+          <div className="text-right">
+            <p className="text-lg font-medium text-[#CFC9BE]">
+              Análise estratégica para empresa <span className="text-[#FCFBF8] font-semibold">{companyName}</span>
+            </p>
+            {mes && <p className="text-base font-medium text-[#E7C453] mt-1">{mes}</p>}
           </div>
         </div>
 
         {/* Página 2: Introdução */}
-        <div className="min-h-[297mm] bg-white p-20 flex flex-col justify-center space-y-12 break-after-page">
-          <p className="text-2xl font-medium text-slate-700">Prezado(a) cliente,</p>
-          <div className="space-y-8 text-xl leading-relaxed text-slate-600">
+        <div className="min-h-[297mm] bg-[#FCFBF8] p-16 flex flex-col justify-center break-after-page">
+          <p className="font-display italic text-2xl text-[#5E594F] mb-10">Prezado(a) cliente,</p>
+          <div className="space-y-7 text-[15px] leading-[1.8] text-[#5E594F] max-w-2xl">
             <p>
               Gostaríamos de compartilhar algumas informações importantes relacionadas aos fornecedores que você está adquirindo insumos ou mercadorias para revenda, os quais são optantes pelo regime tributário do Simples Nacional.
             </p>
             <p>
               Conforme mencionado anteriormente, quando sua empresa adquire produtos tributados de ICMS de fornecedores do Simples Nacional no estado de Pernambuco, a carga tributária média do ICMS aumenta de{' '}
-              <span className="font-bold text-[#001F3F]">5,5% para 25,5%</span>, devido à sistemática de panificação à qual sua empresa é optante.
+              <span className="font-semibold text-[#17150F]">5,5% para 25,5%</span>, devido à sistemática de panificação à qual sua empresa é optante.
             </p>
             <p>
               Com base nessa informação, preparamos uma planilha contendo a lista dos fornecedores do Simples Nacional e os respectivos produtos tributados de ICMS que você está adquirindo. É importante ressaltar que o objetivo dessa lista é proporcionar uma maior transparência e auxiliá-lo(a) na análise das condições comerciais oferecidas pelos fornecedores.
@@ -84,67 +94,68 @@ export function PrintableIcmsReport({ data, summaryTable, fileName, mes, wheatPr
         </div>
 
         {/* Página 3+: Tabela */}
-        <div className="min-h-[297mm] bg-white p-10 break-after-page">
-          <table className="w-full border-collapse text-[10px]">
+        <div className="min-h-[297mm] bg-[#FCFBF8] p-14 break-after-page">
+          <h2 className="font-display text-2xl text-[#17150F] mb-6">Fornecedores do Simples Nacional</h2>
+          <table className="w-full border-collapse text-[11px]">
             <thead>
-              <tr className="bg-[#334155] text-white">
-                <th className="p-4 text-left uppercase tracking-wider border border-slate-200">Nome do Fornec do Simples Nacional</th>
-                <th className="p-4 text-left uppercase tracking-wider border border-slate-200">Nome do Produto</th>
-                <th className="p-4 text-right uppercase tracking-wider border border-slate-200">Valor Total Prod Período</th>
-                <th className="p-4 text-right uppercase tracking-wider border border-slate-200">Valor do ICMS a Pagar</th>
-                <th className="p-4 text-right uppercase tracking-wider border border-slate-200">Valor de ICMS que teria pago (Reg Normal)</th>
-                <th className="p-4 text-right uppercase tracking-wider border border-slate-200">Diferença</th>
+              <tr className="border-b border-[#17150F]">
+                <th className={thCls}>Nome do Fornec do Simples Nacional</th>
+                <th className={thCls}>Nome do Produto</th>
+                <th className={thClsRight}>Valor Total Prod Período</th>
+                <th className={thClsRight}>Valor do ICMS a Pagar</th>
+                <th className={thClsRight}>Valor de ICMS que teria pago (Reg Normal)</th>
+                <th className={thClsRight}>Diferença</th>
               </tr>
             </thead>
             <tbody>
               {data.map((item, idx) => (
-                <tr key={idx} className={idx % 2 === 0 ? 'bg-slate-50' : 'bg-white'}>
-                  <td className="p-4 border border-slate-200 font-bold">{item.name}</td>
-                  <td className="p-4 border border-slate-200">{item.productName}</td>
-                  <td className="p-4 border border-slate-200 text-right">{fmtBRL(item.productTotal)}</td>
-                  <td className="p-4 border border-slate-200 text-right bg-red-100 text-red-700 font-bold">{fmtBRL(item.originalValue)}</td>
-                  <td className="p-4 border border-slate-200 text-right bg-emerald-100 text-emerald-700 font-bold">{fmtBRL(item.newValue)}</td>
-                  <td className="p-4 border border-slate-200 text-right font-bold">{fmtBRL(item.economy)}</td>
+                <tr key={idx} className={rowCls(idx)}>
+                  <td className="py-3 pr-3 font-medium text-[#17150F]">{item.name}</td>
+                  <td className="py-3 pr-3 text-[#5E594F]">{item.productName}</td>
+                  <td className="py-3 pr-3 text-right tabular-nums text-[#5E594F]">{fmtBRL(item.productTotal)}</td>
+                  <td className="py-3 pr-3 text-right tabular-nums font-medium text-[#17150F]">{fmtBRL(item.originalValue)}</td>
+                  <td className="py-3 pr-3 text-right tabular-nums font-medium text-[#9A7B12]">{fmtBRL(item.newValue)}</td>
+                  <td className="py-3 pl-3 text-right tabular-nums font-semibold text-[#17150F]">{fmtBRL(item.economy)}</td>
                 </tr>
               ))}
-              <tr className="bg-slate-100 font-black text-xs">
-                <td colSpan={2} className="p-4 border border-slate-200 text-right uppercase">Total</td>
-                <td className="p-4 border border-slate-200 text-right">{fmtBRL(data.reduce((a, b) => a + b.productTotal, 0))}</td>
-                <td className="p-4 border border-slate-200 text-right">{fmtBRL(data.reduce((a, b) => a + b.originalValue, 0))}</td>
-                <td className="p-4 border border-slate-200 text-right">{fmtBRL(data.reduce((a, b) => a + b.newValue, 0))}</td>
-                <td className="p-4 border border-slate-200 text-right">{fmtBRL(data.reduce((a, b) => a + b.economy, 0))}</td>
+              <tr className="border-t-2 border-[#17150F] font-semibold text-[12px]">
+                <td colSpan={2} className="py-4 pr-3 text-right uppercase tracking-wide text-[10px] text-[#5E594F]">Total</td>
+                <td className="py-4 pr-3 text-right tabular-nums">{fmtBRL(data.reduce((a, b) => a + b.productTotal, 0))}</td>
+                <td className="py-4 pr-3 text-right tabular-nums">{fmtBRL(data.reduce((a, b) => a + b.originalValue, 0))}</td>
+                <td className="py-4 pr-3 text-right tabular-nums text-[#9A7B12]">{fmtBRL(data.reduce((a, b) => a + b.newValue, 0))}</td>
+                <td className="py-4 pl-3 text-right tabular-nums">{fmtBRL(data.reduce((a, b) => a + b.economy, 0))}</td>
               </tr>
             </tbody>
           </table>
         </div>
 
         {/* Página: Conclusão */}
-        <div className="min-h-[297mm] bg-white px-20 py-10 flex flex-col justify-center space-y-8 break-after-page">
-          <div className="space-y-6 text-xl leading-relaxed text-slate-600">
+        <div className="min-h-[297mm] bg-[#FCFBF8] px-16 py-14 flex flex-col justify-center break-after-page">
+          <div className="space-y-6 text-[15px] leading-[1.8] text-[#5E594F] max-w-2xl">
             <p>
               Ao adquirir produtos tributados de ICMS de fornecedores enquadrados no Simples Nacional (conforme tabela), o valor total de ICMS gerado foi de{' '}
-              <span className="font-bold text-slate-900">{fmtBRL(totalSimples)}</span>.
+              <span className="font-semibold text-[#17150F]">{fmtBRL(totalSimples)}</span>.
             </p>
             <p>
               No entanto, se tivéssemos adquirido os mesmos produtos de fornecedores do Regime Normal de apuração, o ICMS seria de apenas{' '}
-              <span className="font-bold text-slate-900">{fmtBRL(totalProjected)}</span>.
+              <span className="font-semibold text-[#17150F]">{fmtBRL(totalProjected)}</span>.
             </p>
-            <p className="text-3xl font-black text-red-600">
+            <p className="font-display italic text-[28px] leading-snug" style={{ color: NEGATIVE }}>
               Isso destaca uma diferença notável de {fmtBRL(totalDiff)}.
             </p>
             <p>
               Considerando o cenário global da empresa, o valor total pago de ICMS (Normal + Simples Nacional) foi de{' '}
-              <span className="font-bold text-slate-900">{fmtBRL(totalPagoReal)}</span>, enquanto o valor ideal projetado seria de{' '}
-              <span className="font-bold text-slate-900">{fmtBRL(totalProjetadoIdeal)}</span>.
+              <span className="font-semibold text-[#17150F]">{fmtBRL(totalPagoReal)}</span>, enquanto o valor ideal projetado seria de{' '}
+              <span className="font-semibold text-[#17150F]">{fmtBRL(totalProjetadoIdeal)}</span>.
             </p>
 
             {wheatPrintData?.isConfirmed && (
-              <p className="bg-[#001F3F]/5 text-slate-700 p-6 rounded-2xl border-l-4 border-emerald-500 font-medium break-inside-avoid">
+              <p className="border-l-2 border-[#C9A227] pl-6 py-1 text-[#5E594F] break-inside-avoid">
                 A título de Validação Técnica da Sistemática de Panificação, registramos um montante total de compras para comercialização de{' '}
-                <span className="font-bold whitespace-nowrap text-slate-900">{fmtBRL(wheatPrintData.questorTotal || 0)}</span>, no qual identificamos{' '}
-                <span className="font-bold whitespace-nowrap text-slate-900">{fmtBRL(wheatPrintData.selectedTotal)}</span> em aquisições validadas pelo analista como insumos de panificação (trigo/pré-misturas). Isso{' '}
-                <span className="font-bold text-slate-900">{wheatPrintData.isOk ? 'atesta o cumprimento' : 'registra o não cumprimento'}</span> da regra dos 7%, alcançando o índice de{' '}
-                <span className="font-bold font-mono text-emerald-700 text-2xl ml-2">
+                <span className="font-semibold whitespace-nowrap text-[#17150F]">{fmtBRL(wheatPrintData.questorTotal || 0)}</span>, no qual identificamos{' '}
+                <span className="font-semibold whitespace-nowrap text-[#17150F]">{fmtBRL(wheatPrintData.selectedTotal)}</span> em aquisições validadas pelo analista como insumos de panificação (trigo/pré-misturas). Isso{' '}
+                <span className="font-semibold text-[#17150F]">{wheatPrintData.isOk ? 'atesta o cumprimento' : 'registra o não cumprimento'}</span> da regra dos 7%, alcançando o índice de{' '}
+                <span className="font-display italic font-semibold ml-2" style={{ color: GOLD, fontSize: '1.4em' }}>
                   {wheatPrintData.percentage ? wheatPrintData.percentage.toFixed(2).replace('.', ',') : '0,00'}%
                 </span>.
               </p>
@@ -157,16 +168,17 @@ export function PrintableIcmsReport({ data, summaryTable, fileName, mes, wheatPr
         </div>
 
         {/* Página: Encerramento */}
-        <div className="min-h-[297mm] bg-white p-20 flex flex-col justify-center space-y-12">
-          <div className="space-y-8 text-xl leading-relaxed text-slate-600">
+        <div className="min-h-[297mm] bg-[#FCFBF8] p-16 flex flex-col justify-center">
+          <div className="space-y-8 text-[15px] leading-[1.8] text-[#5E594F] max-w-2xl">
             <p>
               Caso necessite de suporte adicional para entender os aspectos tributários e as possibilidades de negociação, estamos à disposição para fornecer orientações personalizadas e auxiliá-lo(a) na busca por soluções que otimizem sua gestão financeira.
             </p>
             <p>
               Agradecemos pela confiança em nossos serviços e estamos comprometidos em ajudá-lo(a) a alcançar a eficiência tributária e a lucratividade sustentável em seu negócio.
             </p>
-            <div className="pt-20 break-inside-avoid">
-              <p>Atenciosamente,</p>
+            <div className="pt-16 break-inside-avoid flex items-center gap-4">
+              <img src="/logo-dark.png" alt="" className="h-8 w-auto" />
+              <p className="font-display italic text-lg text-[#17150F]">Atenciosamente,</p>
             </div>
           </div>
         </div>
@@ -189,76 +201,80 @@ interface TrigoReportProps {
 
 export function PrintableTrigoReport({ wheatPrintData }: TrigoReportProps) {
   return (
-    <div className="print:block p-10 bg-white min-h-screen text-slate-800">
+    <div className="print:block p-14 bg-[#FCFBF8] min-h-screen text-[#17150F] font-report">
       <div className="max-w-[210mm] mx-auto">
-        <div className="border-b-4 border-amber-600 pb-6 mb-10 flex items-center gap-4">
-          <span className="text-5xl">🌾</span>
+
+        <div className="flex items-center justify-between border-b border-[#17150F] pb-6 mb-10">
           <div>
-            <h1 className="text-4xl font-black text-slate-900 tracking-tight">Validação Técnica - Sistemática de Panificação</h1>
-            <p className="text-lg text-slate-500 font-medium">Relatório de auditoria e verificação da regra dos 7%</p>
+            <h1 className="font-display text-[30px] text-[#17150F] leading-tight">
+              Validação Técnica <span className="text-[#A29C92]">–</span>{' '}
+              <span className="italic" style={{ color: GOLD }}>Sistemática de Panificação</span>
+            </h1>
+            <p className="text-[14px] text-[#5E594F] font-medium mt-1">Relatório de auditoria e verificação da regra dos 7%</p>
           </div>
+          <img src="/logo-dark.png" alt="" className="h-9 w-auto shrink-0" />
         </div>
 
-        <div className="bg-slate-50 border border-slate-200 p-8 rounded-2xl mb-12 flex items-center justify-between">
-          <div className="space-y-4">
-            <p className="text-sm uppercase tracking-widest font-bold text-slate-400">Total Validado</p>
-            <p className="text-4xl font-mono font-black text-amber-600">
+        <div className="grid grid-cols-2 gap-10 mb-12 pb-10 border-b border-[#E5E0D6]">
+          <div>
+            <p className="text-[10px] uppercase tracking-[0.2em] text-[#78736A] font-medium mb-2">Total Validado</p>
+            <p className="font-display text-[38px] leading-none tabular-nums" style={{ color: GOLD }}>
               {fmtBRL(wheatPrintData.selectedTotal)}
             </p>
           </div>
-          <div className="text-right space-y-4">
-            <p className="text-sm uppercase tracking-widest font-bold text-slate-400">Total Compras Comercialização</p>
-            <p className="text-4xl font-mono font-bold text-slate-800">
+          <div className="text-right">
+            <p className="text-[10px] uppercase tracking-[0.2em] text-[#78736A] font-medium mb-2">Total Compras Comercialização</p>
+            <p className="font-display text-[38px] text-[#17150F] leading-none tabular-nums">
               {wheatPrintData.questorTotal ? fmtBRL(wheatPrintData.questorTotal) : 'Não informado'}
             </p>
           </div>
         </div>
 
-        <div className={`p-8 border-l-8 rounded-r-2xl mb-12 flex items-center justify-between ${wheatPrintData.isOk ? 'bg-emerald-50 border-emerald-500' : 'bg-red-50 border-red-500'}`}>
+        <div className="flex items-center justify-between mb-14">
           <div>
-            <p className="text-xl font-bold text-slate-900 mb-2">Resultado da Regra dos 7%:</p>
-            <p className={`text-4xl font-black ${wheatPrintData.isOk ? 'text-emerald-700' : 'text-red-700'}`}>
+            <p className="text-lg font-medium text-[#17150F] mb-2">Resultado da Regra dos 7%:</p>
+            <p className="font-display text-[42px] leading-none tabular-nums" style={{ color: wheatPrintData.isOk ? GOLD : NEGATIVE }}>
               {wheatPrintData.percentage ? `${wheatPrintData.percentage.toFixed(2).replace('.', ',')}%` : '0,00%'}
             </p>
           </div>
-          <div className="text-6xl text-right font-black">
+          <div className="text-right">
             {wheatPrintData.isOk
-              ? <span className="text-emerald-500">APROVADO</span>
-              : <span className="text-red-500">REPROVADO</span>}
+              ? <span className="font-display italic text-[36px]" style={{ color: GOLD }}>APROVADO</span>
+              : <span className="font-display italic text-[36px]" style={{ color: NEGATIVE }}>REPROVADO</span>}
           </div>
         </div>
 
-        <h3 className="text-2xl font-bold bg-[#001F3F] text-white p-4 rounded-t-xl uppercase tracking-widest text-center mt-12">
+        <h3 className="text-[11px] uppercase tracking-[0.2em] text-[#78736A] font-medium mb-4 pb-3 border-b border-[#17150F]">
           Itens Classificados como Panificação (Marcados com ✓)
         </h3>
-        <table className="w-full text-left text-sm border-collapse border border-slate-200">
+        <table className="w-full text-left text-[12px] border-collapse">
           <thead>
-            <tr className="bg-slate-100 uppercase tracking-widest text-xs font-bold text-slate-500">
-              <th className="p-4 border-b">Descrição do Produto (NCM 1101/1901)</th>
-              <th className="p-4 border-b">Fornecedor</th>
-              <th className="p-4 border-b text-right">Valor Total</th>
+            <tr className="border-b border-[#17150F]">
+              <th className={thCls}>Descrição do Produto (NCM 1101/1901)</th>
+              <th className={thCls}>Fornecedor</th>
+              <th className={thClsRight}>Valor Total</th>
             </tr>
           </thead>
           <tbody>
             {wheatPrintData.selectedItems.map((item, i) => (
-              <tr key={i} className="border-b hover:bg-slate-50">
-                <td className="p-4 font-bold text-slate-800">
+              <tr key={i} className={rowCls(i)}>
+                <td className="py-3 pr-3 font-medium text-[#17150F]">
                   {item.description}
-                  {item.ncm && <span className="font-normal text-slate-500 text-xs ml-2">NCM: {item.ncm}</span>}
+                  {item.ncm && <span className="font-normal text-[#A29C92] text-[11px] ml-2">NCM: {item.ncm}</span>}
                 </td>
-                <td className="p-4 text-slate-600 text-xs">{item.supplier}</td>
-                <td className="p-4 text-right font-mono font-bold text-slate-900">{fmtBRL(item.value)}</td>
+                <td className="py-3 pr-3 text-[#5E594F]">{item.supplier}</td>
+                <td className="py-3 pl-3 text-right tabular-nums font-medium text-[#17150F]">{fmtBRL(item.value)}</td>
               </tr>
             ))}
             {wheatPrintData.selectedItems.length === 0 && (
               <tr>
-                <td colSpan={3} className="p-8 text-center text-slate-400 font-bold">Nenhum item marcado pelo analista.</td>
+                <td colSpan={3} className="py-10 text-center text-[#A29C92] font-medium">Nenhum item marcado pelo analista.</td>
               </tr>
             )}
           </tbody>
         </table>
 
-        <div className="mt-20 text-center text-xs text-slate-400 uppercase tracking-widest">
+        <div className="mt-16 pt-6 border-t border-[#E5E0D6] text-center text-[10px] uppercase tracking-[0.15em] text-[#A29C92]">
           Relatório gerado em {new Date().toLocaleString('pt-BR')} • Assinatura Eletrônica do Analista: _______________________________
         </div>
       </div>
@@ -355,61 +371,66 @@ export function PrintOverlayMulti({ auditorias, modo, onDone }: PrintOverlayMult
   }, []);
 
   const contentIcms = (
-    <div className="bg-slate-200 py-12 print:p-0 print:bg-white text-slate-900 font-sans">
+    <div className="bg-[#EDEAE2] py-12 print:p-0 print:bg-white text-[#17150F] font-report">
       <div className="max-w-[210mm] mx-auto space-y-12 print:space-y-0 shadow-2xl print:shadow-none">
 
         {/* Capa */}
-        <div className="min-h-[297mm] bg-[#001F3F] text-white flex flex-col justify-between p-20 relative overflow-hidden break-after-page">
-          <div className="relative z-10 mt-40 space-y-4">
-            <h1 className="text-[90px] font-black leading-[0.85] tracking-tighter">Impacto</h1>
-            <h1 className="text-[90px] font-black leading-[0.85] tracking-tighter">Tributário</h1>
-            <h1 className="text-[90px] font-black leading-[0.85] tracking-tighter text-[#F5C000]">Consolidado</h1>
-            <p className="text-2xl font-bold mt-12 border-b-2 border-white/20 pb-4 inline-block">
+        <div className="min-h-[297mm] bg-[#17150F] text-[#FCFBF8] flex flex-col justify-between p-16 break-after-page">
+          <div className="flex items-start justify-between">
+            <img src="/logo-white.png" alt="Contador de Padarias" className="h-10 w-auto" />
+            <p className="text-[10px] tracking-[0.3em] uppercase text-[#CFC9BE]">Relatório Estratégico Tributário Consolidado</p>
+          </div>
+          <div className="space-y-3 max-w-2xl">
+            <h1 className="font-display text-[46px] leading-[1.08]">Impacto</h1>
+            <h1 className="font-display text-[46px] leading-[1.08]">Tributário</h1>
+            <h1 className="font-display italic text-[46px] leading-[1.08]" style={{ color: GOLD_LIGHT }}>Consolidado</h1>
+            <p className="font-display italic text-xl text-[#E7C453] mt-6 pb-4 border-b border-white/15 inline-block max-w-lg leading-snug">
               nas Compras de Fornecedores do Simples Nacional
             </p>
-            <p className="text-lg text-sky-300 font-bold mt-4">Período: {periodo}</p>
+            <p className="text-base text-[#CFC9BE] font-medium mt-2">Período: {periodo}</p>
           </div>
-          <div className="relative z-10 text-right">
-            <p className="text-lg font-medium text-slate-300">
-              Análise estratégica para empresa <span className="text-white font-bold">{empresa}</span>
+          <div className="text-right">
+            <p className="text-lg font-medium text-[#CFC9BE]">
+              Análise estratégica para empresa <span className="text-[#FCFBF8] font-semibold">{empresa}</span>
             </p>
           </div>
         </div>
 
         {/* Introdução */}
-        <div className="min-h-[297mm] bg-white p-20 flex flex-col justify-center space-y-12 break-after-page">
-          <p className="text-2xl font-medium text-slate-700">Prezado(a) cliente,</p>
-          <div className="space-y-8 text-xl leading-relaxed text-slate-600">
+        <div className="min-h-[297mm] bg-[#FCFBF8] p-16 flex flex-col justify-center break-after-page">
+          <p className="font-display italic text-2xl text-[#5E594F] mb-10">Prezado(a) cliente,</p>
+          <div className="space-y-7 text-[15px] leading-[1.8] text-[#5E594F] max-w-2xl">
             <p>
-              Apresentamos o relatório consolidado referente ao período de <span className="font-bold text-[#001F3F]">{periodo}</span>, contemplando {sorted.length} {sorted.length === 1 ? 'mês' : 'meses'} de apuração.
+              Apresentamos o relatório consolidado referente ao período de <span className="font-semibold text-[#17150F]">{periodo}</span>, contemplando {sorted.length} {sorted.length === 1 ? 'mês' : 'meses'} de apuração.
             </p>
             <p>
               Quando sua empresa adquire produtos tributados de ICMS de fornecedores do Simples Nacional no estado de Pernambuco, a carga tributária média do ICMS aumenta de{' '}
-              <span className="font-bold text-[#001F3F]">5,5% para 25,5%</span>, devido à sistemática de panificação à qual sua empresa é optante.
+              <span className="font-semibold text-[#17150F]">5,5% para 25,5%</span>, devido à sistemática de panificação à qual sua empresa é optante.
             </p>
             <p>
               No período analisado, o total de ICMS gerado pelas compras do Simples Nacional foi de{' '}
-              <span className="font-bold text-[#001F3F]">{fmtBRL(totalSimples)}</span>, enquanto o valor projetado caso fossem fornecedores do Regime Normal seria de apenas{' '}
-              <span className="font-bold text-emerald-700">{fmtBRL(totalProjetado)}</span>.
+              <span className="font-semibold text-[#17150F]">{fmtBRL(totalSimples)}</span>, enquanto o valor projetado caso fossem fornecedores do Regime Normal seria de apenas{' '}
+              <span className="font-semibold text-[#17150F]">{fmtBRL(totalProjetado)}</span>.
             </p>
-            <div className="bg-red-50 border-l-4 border-red-500 p-6 rounded-r-2xl">
-              <p className="text-3xl font-black text-red-600">Economia potencial total: {fmtBRL(totalDiff)}</p>
-              <p className="text-base text-slate-500 mt-2">{sorted.length} meses analisados</p>
+            <div className="bg-[#17150F] p-8 max-w-md">
+              <p className="text-[10px] uppercase tracking-[0.2em] text-[#CFC9BE] mb-2">Economia potencial total</p>
+              <p className="font-display italic text-[32px] leading-none" style={{ color: GOLD_LIGHT }}>{fmtBRL(totalDiff)}</p>
+              <p className="text-[13px] text-[#CFC9BE] mt-3">{sorted.length} meses analisados</p>
             </div>
           </div>
         </div>
 
         {/* Resumo por mês */}
-        <div className="min-h-[297mm] bg-white p-10 break-after-page">
-          <h2 className="text-2xl font-black text-[#001F3F] mb-6 uppercase tracking-tight">Resumo por Mês</h2>
-          <table className="w-full border-collapse text-sm">
+        <div className="min-h-[297mm] bg-[#FCFBF8] p-14 break-after-page">
+          <h2 className="font-display text-2xl text-[#17150F] mb-6">Resumo por Mês</h2>
+          <table className="w-full border-collapse text-[12px]">
             <thead>
-              <tr className="bg-[#001F3F] text-white text-xs uppercase tracking-wider">
-                <th className="p-3 text-left">Mês</th>
-                <th className="p-3 text-right">ICMS Pago (Simples)</th>
-                <th className="p-3 text-right">ICMS Projetado</th>
-                <th className="p-3 text-right">Teria Economizado</th>
-                <th className="p-3 text-center">% Trigo</th>
+              <tr className="border-b border-[#17150F]">
+                <th className={thCls}>Mês</th>
+                <th className={thClsRight}>ICMS Pago (Simples)</th>
+                <th className={thClsRight}>ICMS Projetado</th>
+                <th className={thClsRight}>Teria Economizado</th>
+                <th className="py-3 pl-3 text-center text-[10px] uppercase tracking-wider text-[#78736A] font-medium">% Trigo</th>
               </tr>
             </thead>
             <tbody>
@@ -420,39 +441,33 @@ export function PrintOverlayMulti({ auditorias, modo, onDone }: PrintOverlayMult
                 const proj = rnd(ativos.reduce((s, f) => s + f.icmsProjetado, 0));
                 const pct = a.percentualSistematica;
                 return (
-                  <tr key={a.id} className={idx % 2 === 0 ? 'bg-slate-50' : 'bg-white'}>
-                    <td className="p-3 font-black text-[#001F3F] border border-slate-100">{a.mesReferencia}</td>
-                    <td className="p-3 text-right border border-slate-100 text-red-600 font-bold">{fmtBRL(pago)}</td>
-                    <td className="p-3 text-right border border-slate-100 text-blue-600 font-bold">{fmtBRL(proj)}</td>
-                    <td className="p-3 text-right border border-slate-100 text-emerald-600 font-black">{fmtBRL(eco)}</td>
-                    <td className="p-3 text-center border border-slate-100">
+                  <tr key={a.id} className={rowCls(idx)}>
+                    <td className="py-3 pr-3 font-medium text-[#17150F]">{a.mesReferencia}</td>
+                    <td className="py-3 pr-3 text-right tabular-nums text-[#17150F]">{fmtBRL(pago)}</td>
+                    <td className="py-3 pr-3 text-right tabular-nums text-[#5E594F]">{fmtBRL(proj)}</td>
+                    <td className="py-3 pr-3 text-right tabular-nums font-semibold" style={{ color: GOLD }}>{fmtBRL(eco)}</td>
+                    <td className="py-3 pl-3 text-center tabular-nums">
                       {pct !== null && pct !== undefined
-                        ? <span className={`text-xs font-black px-2 py-0.5 rounded-full ${pct >= 7 ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
-                            🌾 {pct.toFixed(2).replace('.', ',')}%
-                          </span>
-                        : <span className="text-slate-300">—</span>}
+                        ? <span className="font-semibold" style={{ color: pct >= 7 ? GOLD : NEGATIVE }}>{pct.toFixed(2).replace('.', ',')}%</span>
+                        : <span className="text-[#A29C92]">—</span>}
                     </td>
                   </tr>
                 );
               })}
             </tbody>
             <tfoot>
-              <tr className="bg-[#001F3F] text-white font-black text-sm">
-                <td className="p-3">TOTAL / MÉDIA</td>
-                <td className="p-3 text-right">{fmtBRL(totalSimples)}</td>
-                <td className="p-3 text-right">{fmtBRL(totalProjetado)}</td>
-                <td className="p-3 text-right text-[#F5C000]">{fmtBRL(totalEconomia)}</td>
-                <td className="p-3 text-center">
+              <tr className="border-t-2 border-[#17150F] font-semibold text-[12px]">
+                <td className="py-4 pr-3 uppercase tracking-wide text-[10px] text-[#5E594F]">TOTAL / MÉDIA</td>
+                <td className="py-4 pr-3 text-right tabular-nums">{fmtBRL(totalSimples)}</td>
+                <td className="py-4 pr-3 text-right tabular-nums">{fmtBRL(totalProjetado)}</td>
+                <td className="py-4 pr-3 text-right tabular-nums" style={{ color: GOLD }}>{fmtBRL(totalEconomia)}</td>
+                <td className="py-4 pl-3 text-center tabular-nums">
                   {(() => {
                     const totalQuestorAll = sorted.reduce((acc, a) => acc + (a.trigoQuestorTotal ?? 0), 0);
                     const totalSelectedAll = sorted.reduce((acc, a) => acc + (a.trigoSelectedTotal ?? 0), 0);
-                    if (!totalQuestorAll) return <span className="text-white/40">—</span>;
+                    if (!totalQuestorAll) return <span className="text-[#A29C92]">—</span>;
                     const media = rnd((totalSelectedAll / totalQuestorAll) * 100);
-                    return (
-                      <span className={`text-xs font-black px-2 py-0.5 rounded-full ${media >= 7 ? 'bg-emerald-400 text-emerald-900' : 'bg-amber-400 text-amber-900'}`}>
-                        🌾 {media.toFixed(2).replace('.', ',')}%
-                      </span>
-                    );
+                    return <span style={{ color: media >= 7 ? GOLD : NEGATIVE }}>{media.toFixed(2).replace('.', ',')}%</span>;
                   })()}
                 </td>
               </tr>
@@ -468,46 +483,47 @@ export function PrintOverlayMulti({ auditorias, modo, onDone }: PrintOverlayMult
             originalValue: f.icmsPago, newValue: f.icmsProjetado, economy: f.economia,
           }));
           return (
-            <div key={a.id} className="bg-white p-10 break-after-page">
-              <div className="flex items-center gap-3 mb-5">
-                <div className="bg-[#001F3F] text-white text-xs font-black px-4 py-2 rounded-xl uppercase tracking-wider">
-                  {MESES_NOMES[parseInt(a.mesReferencia.split('/')[0]||'1')-1]}/{a.mesReferencia.split('/')[1]?.slice(2)}
-                </div>
-                <h2 className="text-lg font-black text-[#001F3F] uppercase">{a.mesReferencia} — Fornecedores do Simples Nacional</h2>
+            <div key={a.id} className="bg-[#FCFBF8] p-14 break-after-page">
+              <div className="flex items-baseline gap-3 mb-5 pb-4 border-b border-[#17150F]">
+                <h2 className="font-display text-xl text-[#17150F]">{a.mesReferencia}</h2>
+                <span className="text-[13px] text-[#78736A]">Fornecedores do Simples Nacional</span>
                 {a.percentualSistematica !== null && a.percentualSistematica !== undefined && (
-                  <span className={`text-xs font-black px-3 py-1 rounded-full ${a.regra7pctAtendida ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
-                    🌾 {a.percentualSistematica.toFixed(2).replace('.', ',')}%
+                  <span
+                    className="ml-auto text-[13px] font-semibold"
+                    style={{ color: a.regra7pctAtendida ? GOLD : NEGATIVE }}
+                  >
+                    {a.percentualSistematica.toFixed(2).replace('.', ',')}%
                   </span>
                 )}
               </div>
-              <table className="w-full border-collapse text-[10px]">
+              <table className="w-full border-collapse text-[11px]">
                 <thead>
-                  <tr className="bg-[#334155] text-white">
-                    <th className="p-3 text-left border border-slate-200">Fornecedor</th>
-                    <th className="p-3 text-left border border-slate-200">Produto</th>
-                    <th className="p-3 text-right border border-slate-200">Valor Total</th>
-                    <th className="p-3 text-right border border-slate-200">ICMS Pago</th>
-                    <th className="p-3 text-right border border-slate-200">ICMS Projetado</th>
-                    <th className="p-3 text-right border border-slate-200">Economia</th>
+                  <tr className="border-b border-[#17150F]">
+                    <th className={thCls}>Fornecedor</th>
+                    <th className={thCls}>Produto</th>
+                    <th className={thClsRight}>Valor Total</th>
+                    <th className={thClsRight}>ICMS Pago</th>
+                    <th className={thClsRight}>ICMS Projetado</th>
+                    <th className={thClsRight}>Economia</th>
                   </tr>
                 </thead>
                 <tbody>
                   {data.map((item, idx) => (
-                    <tr key={idx} className={idx % 2 === 0 ? 'bg-slate-50' : 'bg-white'}>
-                      <td className="p-3 border border-slate-200 font-bold">{item.name}</td>
-                      <td className="p-3 border border-slate-200">{item.productName}</td>
-                      <td className="p-3 border border-slate-200 text-right">{fmtBRL(item.productTotal)}</td>
-                      <td className="p-3 border border-slate-200 text-right bg-red-50 text-red-700 font-bold">{fmtBRL(item.originalValue)}</td>
-                      <td className="p-3 border border-slate-200 text-right bg-emerald-50 text-emerald-700 font-bold">{fmtBRL(item.newValue)}</td>
-                      <td className="p-3 border border-slate-200 text-right font-bold">{fmtBRL(item.economy)}</td>
+                    <tr key={idx} className={rowCls(idx)}>
+                      <td className="py-2 pr-3 font-medium text-[#17150F]">{item.name}</td>
+                      <td className="py-2 pr-3 text-[#5E594F]">{item.productName}</td>
+                      <td className="py-2 pr-3 text-right tabular-nums text-[#5E594F]">{fmtBRL(item.productTotal)}</td>
+                      <td className="py-2 pr-3 text-right tabular-nums font-medium text-[#17150F]">{fmtBRL(item.originalValue)}</td>
+                      <td className="py-2 pr-3 text-right tabular-nums font-medium" style={{ color: GOLD }}>{fmtBRL(item.newValue)}</td>
+                      <td className="py-2 pl-3 text-right tabular-nums font-semibold text-[#17150F]">{fmtBRL(item.economy)}</td>
                     </tr>
                   ))}
-                  <tr className="bg-slate-100 font-black text-xs">
-                    <td colSpan={2} className="p-3 border border-slate-200 text-right uppercase">Total {a.mesReferencia}</td>
-                    <td className="p-3 border border-slate-200 text-right">{fmtBRL(data.reduce((s,i)=>s+i.productTotal,0))}</td>
-                    <td className="p-3 border border-slate-200 text-right">{fmtBRL(data.reduce((s,i)=>s+i.originalValue,0))}</td>
-                    <td className="p-3 border border-slate-200 text-right">{fmtBRL(data.reduce((s,i)=>s+i.newValue,0))}</td>
-                    <td className="p-3 border border-slate-200 text-right">{fmtBRL(data.reduce((s,i)=>s+i.economy,0))}</td>
+                  <tr className="border-t-2 border-[#17150F] font-semibold text-[11px]">
+                    <td colSpan={2} className="py-3 pr-3 text-right uppercase tracking-wide text-[10px] text-[#5E594F]">Total {a.mesReferencia}</td>
+                    <td className="py-3 pr-3 text-right tabular-nums">{fmtBRL(data.reduce((s,i)=>s+i.productTotal,0))}</td>
+                    <td className="py-3 pr-3 text-right tabular-nums">{fmtBRL(data.reduce((s,i)=>s+i.originalValue,0))}</td>
+                    <td className="py-3 pr-3 text-right tabular-nums" style={{ color: GOLD }}>{fmtBRL(data.reduce((s,i)=>s+i.newValue,0))}</td>
+                    <td className="py-3 pl-3 text-right tabular-nums">{fmtBRL(data.reduce((s,i)=>s+i.economy,0))}</td>
                   </tr>
                 </tbody>
               </table>
@@ -516,25 +532,26 @@ export function PrintOverlayMulti({ auditorias, modo, onDone }: PrintOverlayMult
         })}
 
         {/* Conclusão consolidada */}
-        <div className="min-h-[297mm] bg-white px-20 py-10 flex flex-col justify-center space-y-8 break-after-page">
-          <h2 className="text-3xl font-black text-[#001F3F] uppercase tracking-tight">Conclusão do Período</h2>
-          <div className="space-y-6 text-xl leading-relaxed text-slate-600">
+        <div className="min-h-[297mm] bg-[#FCFBF8] px-16 py-14 flex flex-col justify-center break-after-page">
+          <h2 className="font-display text-2xl text-[#17150F] mb-8">Conclusão do Período</h2>
+          <div className="space-y-6 text-[15px] leading-[1.8] text-[#5E594F] max-w-2xl">
             <p>
-              No período de <span className="font-bold text-[#001F3F]">{periodo}</span>, o ICMS gerado exclusivamente pelas compras de fornecedores do <span className="font-bold text-[#001F3F]">Simples Nacional</span> foi de{' '}
-              <span className="font-bold text-slate-900">{fmtBRL(totalSimples)}</span>.
+              No período de <span className="font-semibold text-[#17150F]">{periodo}</span>, o ICMS gerado exclusivamente pelas compras de fornecedores do <span className="font-semibold text-[#17150F]">Simples Nacional</span> foi de{' '}
+              <span className="font-semibold text-[#17150F]">{fmtBRL(totalSimples)}</span>.
             </p>
             <p>
-              Se esses mesmos produtos tivessem sido adquiridos de fornecedores do <span className="font-bold text-[#001F3F]">Regime Normal</span>, o ICMS projetado seria de apenas{' '}
-              <span className="font-bold text-slate-900">{fmtBRL(totalProjetado)}</span>.
+              Se esses mesmos produtos tivessem sido adquiridos de fornecedores do <span className="font-semibold text-[#17150F]">Regime Normal</span>, o ICMS projetado seria de apenas{' '}
+              <span className="font-semibold text-[#17150F]">{fmtBRL(totalProjetado)}</span>.
             </p>
-            <div className="bg-red-50 border-l-4 border-red-500 p-6 rounded-r-2xl">
-              <p className="text-3xl font-black text-red-600">Diferença acumulada no período: {fmtBRL(totalDiff)}</p>
-              <p className="text-base text-slate-500 mt-2">{sorted.length} {sorted.length === 1 ? 'mês analisado' : 'meses analisados'}</p>
+            <div className="bg-[#17150F] p-8 max-w-md">
+              <p className="text-[10px] uppercase tracking-[0.2em] text-[#CFC9BE] mb-2">Diferença acumulada no período</p>
+              <p className="font-display italic text-[32px] leading-none" style={{ color: GOLD_LIGHT }}>{fmtBRL(totalDiff)}</p>
+              <p className="text-[13px] text-[#CFC9BE] mt-3">{sorted.length} {sorted.length === 1 ? 'mês analisado' : 'meses analisados'}</p>
             </div>
             <p>
               Considerando o cenário global da empresa, o valor total pago de ICMS (Normal + Simples Nacional) foi de{' '}
-              <span className="font-bold text-slate-900">{fmtBRL(totalPagoReal)}</span>, enquanto o valor ideal projetado seria de{' '}
-              <span className="font-bold text-slate-900">{fmtBRL(totalProjetadoIdeal)}</span>.
+              <span className="font-semibold text-[#17150F]">{fmtBRL(totalPagoReal)}</span>, enquanto o valor ideal projetado seria de{' '}
+              <span className="font-semibold text-[#17150F]">{fmtBRL(totalProjetadoIdeal)}</span>.
             </p>
             <p>
               Recomendamos a análise dos fornecedores listados e a busca por condições comerciais mais favoráveis, como descontos financeiros ou migração para fornecedores do Regime Normal.
@@ -543,11 +560,14 @@ export function PrintOverlayMulti({ auditorias, modo, onDone }: PrintOverlayMult
         </div>
 
         {/* Encerramento */}
-        <div className="min-h-[297mm] bg-white p-20 flex flex-col justify-center space-y-12">
-          <div className="space-y-8 text-xl leading-relaxed text-slate-600">
+        <div className="min-h-[297mm] bg-[#FCFBF8] p-16 flex flex-col justify-center">
+          <div className="space-y-8 text-[15px] leading-[1.8] text-[#5E594F] max-w-2xl">
             <p>Caso necessite de suporte adicional, estamos à disposição para fornecer orientações personalizadas e auxiliá-lo(a) na busca por soluções que otimizem sua gestão financeira.</p>
             <p>Agradecemos pela confiança em nossos serviços e estamos comprometidos em ajudá-lo(a) a alcançar a eficiência tributária e a lucratividade sustentável em seu negócio.</p>
-            <div className="pt-20"><p>Atenciosamente,</p></div>
+            <div className="pt-16 flex items-center gap-4">
+              <img src="/logo-dark.png" alt="" className="h-8 w-auto" />
+              <p className="font-display italic text-lg text-[#17150F]">Atenciosamente,</p>
+            </div>
           </div>
         </div>
 
@@ -556,30 +576,33 @@ export function PrintOverlayMulti({ auditorias, modo, onDone }: PrintOverlayMult
   );
 
   const contentTrigo = (
-    <div className="print:block p-10 bg-white min-h-screen text-slate-800">
+    <div className="print:block p-14 bg-[#FCFBF8] min-h-screen text-[#17150F] font-report">
       <div className="max-w-[210mm] mx-auto space-y-16">
 
         {/* Cabeçalho */}
-        <div className="border-b-4 border-amber-600 pb-6 flex items-center gap-4">
-          <span className="text-5xl">🌾</span>
+        <div className="flex items-center justify-between border-b border-[#17150F] pb-6">
           <div>
-            <h1 className="text-3xl font-black text-slate-900 tracking-tight">Validação Técnica — Sistemática de Panificação</h1>
-            <p className="text-lg font-black text-[#001F3F] mt-1">{empresa}</p>
-            <p className="text-base text-slate-500 font-medium">Relatório consolidado · Período: {periodo} · {sorted.length} meses</p>
+            <h1 className="font-display text-[28px] text-[#17150F] leading-tight">
+              Validação Técnica <span className="text-[#A29C92]">—</span>{' '}
+              <span className="italic" style={{ color: GOLD }}>Sistemática de Panificação</span>
+            </h1>
+            <p className="text-[15px] font-semibold text-[#17150F] mt-1">{empresa}</p>
+            <p className="text-[13px] text-[#5E594F] font-medium">Relatório consolidado · Período: {periodo} · {sorted.length} meses</p>
           </div>
+          <img src="/logo-dark.png" alt="" className="h-9 w-auto shrink-0" />
         </div>
 
         {/* Tabela resumo por mês */}
         <div>
-          <h2 className="text-xl font-black text-[#001F3F] mb-4 uppercase tracking-tight">Resumo por Mês</h2>
-          <table className="w-full border-collapse text-sm">
+          <h2 className="font-display text-xl text-[#17150F] mb-5">Resumo por Mês</h2>
+          <table className="w-full border-collapse text-[12px]">
             <thead>
-              <tr className="bg-[#001F3F] text-white text-xs uppercase tracking-wider">
-                <th className="p-3 text-left">Mês</th>
-                <th className="p-3 text-right">Total Compras</th>
-                <th className="p-3 text-right">Trigo Validado</th>
-                <th className="p-3 text-right">% Trigo</th>
-                <th className="p-3 text-center">Regra 7%</th>
+              <tr className="border-b border-[#17150F]">
+                <th className={thCls}>Mês</th>
+                <th className={thClsRight}>Total Compras</th>
+                <th className={thClsRight}>Trigo Validado</th>
+                <th className={thClsRight}>% Trigo</th>
+                <th className="py-3 pl-3 text-center text-[10px] uppercase tracking-wider text-[#78736A] font-medium">Regra 7%</th>
               </tr>
             </thead>
             <tbody>
@@ -588,25 +611,23 @@ export function PrintOverlayMulti({ auditorias, modo, onDone }: PrintOverlayMult
                 const ok = a.regra7pctAtendida;
                 const temTrigo = a.trigoItens && a.trigoItens.length > 0;
                 return (
-                  <tr key={a.id} className={idx % 2 === 0 ? 'bg-slate-50' : 'bg-white'}>
-                    <td className="p-3 font-black text-[#001F3F] border border-slate-100">{a.mesReferencia}</td>
-                    <td className="p-3 text-right border border-slate-100 font-bold">
-                      {a.trigoQuestorTotal ? fmtBRL(a.trigoQuestorTotal) : <span className="text-slate-300">—</span>}
+                  <tr key={a.id} className={rowCls(idx)}>
+                    <td className="py-3 pr-3 font-medium text-[#17150F]">{a.mesReferencia}</td>
+                    <td className="py-3 pr-3 text-right tabular-nums text-[#5E594F]">
+                      {a.trigoQuestorTotal ? fmtBRL(a.trigoQuestorTotal) : <span className="text-[#A29C92]">—</span>}
                     </td>
-                    <td className="p-3 text-right border border-slate-100 font-bold text-amber-700">
-                      {temTrigo ? fmtBRL(a.trigoSelectedTotal ?? 0) : <span className="text-slate-300">—</span>}
+                    <td className="py-3 pr-3 text-right tabular-nums font-medium" style={{ color: GOLD }}>
+                      {temTrigo ? fmtBRL(a.trigoSelectedTotal ?? 0) : <span className="text-[#A29C92]">—</span>}
                     </td>
-                    <td className="p-3 text-right border border-slate-100">
+                    <td className="py-3 pr-3 text-right tabular-nums">
                       {pct !== null && pct !== undefined
-                        ? <span className={`text-xs font-black px-2 py-0.5 rounded-full ${pct >= 7 ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
-                            {pct.toFixed(2).replace('.', ',')}%
-                          </span>
-                        : <span className="text-slate-300">—</span>}
+                        ? <span className="font-semibold" style={{ color: pct >= 7 ? GOLD : NEGATIVE }}>{pct.toFixed(2).replace('.', ',')}%</span>
+                        : <span className="text-[#A29C92]">—</span>}
                     </td>
-                    <td className="p-3 text-center border border-slate-100 font-black">
+                    <td className="py-3 pl-3 text-center font-semibold">
                       {ok !== null && ok !== undefined
-                        ? <span className={ok ? 'text-emerald-600' : 'text-red-600'}>{ok ? '✓ Aprovado' : '✗ Reprovado'}</span>
-                        : <span className="text-slate-300">—</span>}
+                        ? <span style={{ color: ok ? GOLD : NEGATIVE }}>{ok ? 'Aprovado' : 'Reprovado'}</span>
+                        : <span className="text-[#A29C92]">—</span>}
                     </td>
                   </tr>
                 );
@@ -619,21 +640,19 @@ export function PrintOverlayMulti({ auditorias, modo, onDone }: PrintOverlayMult
                 const totalPct = totalQuestor > 0 ? (totalSelected / totalQuestor) * 100 : null;
                 const totalOk = totalPct !== null && totalPct >= 7;
                 return (
-                  <tr className="bg-[#001F3F] text-white font-black text-sm">
-                    <td className="p-3">TOTAL</td>
-                    <td className="p-3 text-right">{totalQuestor > 0 ? fmtBRL(totalQuestor) : <span className="text-white/40">—</span>}</td>
-                    <td className="p-3 text-right text-amber-300">{totalSelected > 0 ? fmtBRL(totalSelected) : <span className="text-white/40">—</span>}</td>
-                    <td className="p-3 text-right">
+                  <tr className="border-t-2 border-[#17150F] font-semibold text-[12px]">
+                    <td className="py-4 pr-3 uppercase tracking-wide text-[10px] text-[#5E594F]">TOTAL</td>
+                    <td className="py-4 pr-3 text-right tabular-nums">{totalQuestor > 0 ? fmtBRL(totalQuestor) : <span className="text-[#A29C92]">—</span>}</td>
+                    <td className="py-4 pr-3 text-right tabular-nums" style={{ color: GOLD }}>{totalSelected > 0 ? fmtBRL(totalSelected) : <span className="text-[#A29C92]">—</span>}</td>
+                    <td className="py-4 pr-3 text-right tabular-nums">
                       {totalPct !== null
-                        ? <span className={`text-xs font-black px-2 py-0.5 rounded-full ${totalOk ? 'bg-emerald-400 text-emerald-900' : 'bg-amber-400 text-amber-900'}`}>
-                            {totalPct.toFixed(2).replace('.', ',')}%
-                          </span>
-                        : <span className="text-white/40">—</span>}
+                        ? <span style={{ color: totalOk ? GOLD : NEGATIVE }}>{totalPct.toFixed(2).replace('.', ',')}%</span>
+                        : <span className="text-[#A29C92]">—</span>}
                     </td>
-                    <td className="p-3 text-center font-black">
+                    <td className="py-4 pl-3 text-center">
                       {totalPct !== null
-                        ? <span className={totalOk ? 'text-emerald-300' : 'text-red-300'}>{totalOk ? '✓ Aprovado' : '✗ Reprovado'}</span>
-                        : <span className="text-white/40">—</span>}
+                        ? <span style={{ color: totalOk ? GOLD : NEGATIVE }}>{totalOk ? 'Aprovado' : 'Reprovado'}</span>
+                        : <span className="text-[#A29C92]">—</span>}
                     </td>
                   </tr>
                 );
@@ -648,41 +667,41 @@ export function PrintOverlayMulti({ auditorias, modo, onDone }: PrintOverlayMult
           if (itens.length === 0) return null;
           return (
             <div key={a.id} className="break-inside-avoid">
-              <div className="flex items-center gap-3 mb-3">
-                <h3 className="text-lg font-black text-[#001F3F] uppercase">{a.mesReferencia}</h3>
+              <div className="flex items-baseline gap-3 mb-4 pb-3 border-b border-[#E5E0D6]">
+                <h3 className="font-display text-lg text-[#17150F]">{a.mesReferencia}</h3>
                 {a.percentualSistematica !== null && a.percentualSistematica !== undefined && (
-                  <span className={`text-sm font-black px-3 py-1 rounded-full ${a.regra7pctAtendida ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
-                    🌾 {a.percentualSistematica.toFixed(2).replace('.', ',')}% {a.regra7pctAtendida ? '— APROVADO' : '— REPROVADO'}
+                  <span className="text-[13px] font-semibold" style={{ color: a.regra7pctAtendida ? GOLD : NEGATIVE }}>
+                    {a.percentualSistematica.toFixed(2).replace('.', ',')}% {a.regra7pctAtendida ? '— APROVADO' : '— REPROVADO'}
                   </span>
                 )}
               </div>
-              <div className="flex gap-4 mb-4">
-                <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex-1 text-center">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Total Compras</p>
-                  <p className="text-xl font-black text-slate-800">{a.trigoQuestorTotal ? fmtBRL(a.trigoQuestorTotal) : '—'}</p>
+              <div className="flex gap-10 mb-5">
+                <div>
+                  <p className="text-[10px] uppercase tracking-[0.2em] text-[#78736A] font-medium mb-1">Total Compras</p>
+                  <p className="font-display text-xl text-[#17150F] tabular-nums">{a.trigoQuestorTotal ? fmtBRL(a.trigoQuestorTotal) : '—'}</p>
                 </div>
-                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex-1 text-center">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-amber-600">Trigo Validado</p>
-                  <p className="text-xl font-black text-amber-700">{fmtBRL(a.trigoSelectedTotal ?? 0)}</p>
+                <div>
+                  <p className="text-[10px] uppercase tracking-[0.2em] font-medium mb-1" style={{ color: GOLD }}>Trigo Validado</p>
+                  <p className="font-display text-xl tabular-nums" style={{ color: GOLD }}>{fmtBRL(a.trigoSelectedTotal ?? 0)}</p>
                 </div>
               </div>
-              <table className="w-full text-left text-xs border-collapse border border-slate-200">
+              <table className="w-full text-left text-[11px] border-collapse">
                 <thead>
-                  <tr className="bg-slate-100 text-slate-500 uppercase tracking-wider text-[10px] font-bold">
-                    <th className="p-3 border-b">Produto</th>
-                    <th className="p-3 border-b">Fornecedor</th>
-                    <th className="p-3 border-b text-right">Valor</th>
+                  <tr className="border-b border-[#17150F]">
+                    <th className={thCls}>Produto</th>
+                    <th className={thCls}>Fornecedor</th>
+                    <th className={thClsRight}>Valor</th>
                   </tr>
                 </thead>
                 <tbody>
                   {itens.map((item, i) => (
-                    <tr key={i} className="border-b hover:bg-slate-50">
-                      <td className="p-3 font-bold text-slate-800">
+                    <tr key={i} className="border-b border-[#EFEBE3]">
+                      <td className="py-2 pr-3 font-medium text-[#17150F]">
                         {item.description}
-                        {item.ncm && <span className="font-normal text-slate-400 ml-2">NCM: {item.ncm}</span>}
+                        {item.ncm && <span className="font-normal text-[#A29C92] ml-2">NCM: {item.ncm}</span>}
                       </td>
-                      <td className="p-3 text-slate-500">{item.supplier}</td>
-                      <td className="p-3 text-right font-mono font-bold">{fmtBRL(item.value)}</td>
+                      <td className="py-2 pr-3 text-[#5E594F]">{item.supplier}</td>
+                      <td className="py-2 pl-3 text-right tabular-nums font-medium text-[#17150F]">{fmtBRL(item.value)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -706,8 +725,8 @@ export function PrintOverlayMulti({ auditorias, modo, onDone }: PrintOverlayMult
       <div id="print-overlay-root" style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'white', overflowY: 'auto' }}>
         <button
           onClick={onDone}
-          className="print:hidden"
-          style={{ position: 'fixed', top: 16, right: 16, zIndex: 10000, background: '#1e293b', color: 'white', fontSize: 12, fontWeight: 700, padding: '8px 16px', borderRadius: 12, border: 'none', cursor: 'pointer' }}
+          className="print:hidden font-report"
+          style={{ position: 'fixed', top: 16, right: 16, zIndex: 10000, background: INK, color: '#FCFBF8', fontSize: 12, fontWeight: 600, padding: '8px 16px', borderRadius: 4, border: 'none', cursor: 'pointer', letterSpacing: '0.02em' }}
         >
           ✕ Fechar prévia
         </button>
@@ -827,12 +846,12 @@ export function PrintOverlay({ auditoria, modo, onDone, incluirTrigo = true }: P
         {/* botão fechar — some na impressão */}
         <button
           onClick={onDone}
-          className="print:hidden"
+          className="print:hidden font-report"
           style={{
             position: 'fixed', top: 16, right: 16, zIndex: 10000,
-            background: '#1e293b', color: 'white', fontSize: 12,
-            fontWeight: 700, padding: '8px 16px', borderRadius: 12,
-            border: 'none', cursor: 'pointer',
+            background: INK, color: '#FCFBF8', fontSize: 12,
+            fontWeight: 600, padding: '8px 16px', borderRadius: 4,
+            border: 'none', cursor: 'pointer', letterSpacing: '0.02em',
           }}
         >
           ✕ Fechar prévia

@@ -1,6 +1,10 @@
 @import "tailwindcss";
 
 @layer base {
+  /* Padrão visual Contador de Padarias — relatórios exportados */
+  .font-display { font-family: 'Newsreader', Georgia, 'Times New Roman', serif; }
+  .font-report { font-family: 'IBM Plex Sans', system-ui, -apple-system, sans-serif; }
+
   @media print {
     body {
       -webkit-print-color-adjust: exact !important;
