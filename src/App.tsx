@@ -3138,7 +3138,7 @@ NENHUMA PALAVRA OU EXPLICAÇÃO DEVE SER ESCRITA NA RESPOSTA ALÉM DO ARRAY JSON
           </table>
           
           <div className="mt-20 text-center text-xs text-slate-400 uppercase tracking-widest">
-            Relatório gerado em {new Date().toLocaleString('pt-BR')} • Assinatura Eletrônica do Analista: _______________________________
+            Assinatura Eletrônica do Analista: _______________________________
           </div>
         </div>
       </div>

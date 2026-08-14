@@ -85,8 +85,6 @@ interface PrintablePainelProps {
 }
 
 function PrintablePainelReport({ empresasFiltradas, totalEconomiaGeral, trigoMediaGeral, trigoOk, trigoTotal, periodoLabel }: PrintablePainelProps) {
-  const dateStr = new Date().toLocaleDateString('pt-BR');
-
   return (
     <div className="bg-[#FCFBF8] text-[#17150F] font-report text-[13px] min-w-[900px]">
       {/* Cabeçalho */}
@@ -96,7 +94,7 @@ function PrintablePainelReport({ empresasFiltradas, totalEconomiaGeral, trigoMed
             <p className="text-[10px] tracking-[0.3em] uppercase text-[#CFC9BE] mb-3">Relatório Estratégico Tributário</p>
             <h1 className="font-display text-[32px] leading-tight">Relatório Geral <span className="italic" style={{ color: P_GOLD_LIGHT }}>— Economia ICMS</span></h1>
             <p className="text-[#CFC9BE] text-sm mt-2 font-medium">
-              Período: {periodoLabel} · Gerado em {dateStr}
+              Período: {periodoLabel}
             </p>
           </div>
           <img src="/logo-white.png" alt="Contador de Padarias" className="h-10 w-auto shrink-0" />
