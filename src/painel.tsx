@@ -62,6 +62,15 @@ function BadgeTrigo({ pct }: { pct: number | null }) {
   );
 }
 
+// ─── PADRÃO VISUAL · CONTADOR DE PADARIAS (mesmos tokens de relatorio.tsx) ───
+const P_INK = '#17150F';
+const P_GOLD = '#9A7B12';
+const P_GOLD_LIGHT = '#E7C453';
+const P_NEGATIVE = '#8B3A3A';
+const pThCls = 'text-left py-3 px-3 text-[10px] uppercase tracking-wider text-[#78736A] font-medium';
+const pThClsRight = 'text-right py-3 px-3 text-[10px] uppercase tracking-wider text-[#78736A] font-medium';
+const pRowCls = (idx: number) => `border-b border-[#EFEBE3] ${idx % 2 === 0 ? 'bg-[#F7F5EF]' : 'bg-transparent'}`;
+
 // ─── PDF DO PAINEL GERAL ──────────────────────────────────────────────────────
 interface PrintablePainelProps {
   empresasFiltradas: [string, AuditoriaSalva[]][];
@@ -76,27 +85,33 @@ function PrintablePainelReport({ empresasFiltradas, totalEconomiaGeral, trigoMed
   const dateStr = new Date().toLocaleDateString('pt-BR');
 
   return (
-    <div className="bg-white text-slate-900 font-sans text-[13px] min-w-[900px]">
+    <div className="bg-[#FCFBF8] text-[#17150F] font-report text-[13px] min-w-[900px]">
       {/* Cabeçalho */}
-      <div className="bg-[#001F3F] text-white px-6 py-8 print:break-after-avoid">
-        <h1 className="text-2xl font-black tracking-tight">Relatório Geral — Economia ICMS Sistemática</h1>
-        <p className="text-sky-300 text-sm mt-1 font-bold">
-          Período: {periodoLabel} · Gerado em {dateStr}
-        </p>
-        <div className="flex gap-8 mt-5">
+      <div className="bg-[#17150F] text-[#FCFBF8] px-8 py-10 print:break-after-avoid">
+        <div className="flex items-start justify-between">
           <div>
-            <p className="text-white/50 text-[11px] font-bold uppercase tracking-widest">Empresas</p>
-            <p className="text-2xl font-black">{empresasFiltradas.length}</p>
+            <p className="text-[10px] tracking-[0.3em] uppercase text-[#CFC9BE] mb-3">Relatório Estratégico Tributário</p>
+            <h1 className="font-display text-[32px] leading-tight">Relatório Geral <span className="italic" style={{ color: P_GOLD_LIGHT }}>— Economia ICMS</span></h1>
+            <p className="text-[#CFC9BE] text-sm mt-2 font-medium">
+              Período: {periodoLabel} · Gerado em {dateStr}
+            </p>
+          </div>
+          <img src="/logo-white.png" alt="Contador de Padarias" className="h-10 w-auto shrink-0" />
+        </div>
+        <div className="flex gap-10 mt-8 pt-6 border-t border-white/15">
+          <div>
+            <p className="text-[#A29C92] text-[10px] font-medium uppercase tracking-widest">Empresas</p>
+            <p className="font-display text-[28px] leading-tight tabular-nums">{empresasFiltradas.length}</p>
           </div>
           <div>
-            <p className="text-white/50 text-[11px] font-bold uppercase tracking-widest">Economia Total</p>
-            <p className="text-2xl font-black text-emerald-400">{fmt(totalEconomiaGeral)}</p>
+            <p className="text-[#A29C92] text-[10px] font-medium uppercase tracking-widest">Economia Total</p>
+            <p className="font-display text-[28px] leading-tight tabular-nums" style={{ color: P_GOLD_LIGHT }}>{fmt(totalEconomiaGeral)}</p>
           </div>
           {trigoMediaGeral !== null && (
             <div>
-              <p className="text-white/50 text-[11px] font-bold uppercase tracking-widest">% Trigo Médio</p>
-              <p className={`text-2xl font-black ${trigoMediaGeral >= 7 ? 'text-emerald-400' : 'text-amber-400'}`}>{fmtPct(trigoMediaGeral)}</p>
-              <p className="text-white/50 text-[11px]">{trigoOk}/{trigoTotal} meses ≥7%</p>
+              <p className="text-[#A29C92] text-[10px] font-medium uppercase tracking-widest">% Trigo Médio</p>
+              <p className="font-display text-[28px] leading-tight tabular-nums" style={{ color: trigoMediaGeral >= 7 ? P_GOLD_LIGHT : '#C97A7A' }}>{fmtPct(trigoMediaGeral)}</p>
+              <p className="text-[#A29C92] text-[11px] mt-0.5">{trigoOk}/{trigoTotal} meses ≥7%</p>
             </div>
           )}
         </div>
@@ -129,19 +144,19 @@ function PrintablePainelReport({ empresasFiltradas, totalEconomiaGeral, trigoMed
         const totalIdealGlobal = round(totalNormal + totalProj);
 
         return (
-          <div key={nome} className="px-6 py-6 break-inside-avoid">
+          <div key={nome} className="px-8 py-7 break-inside-avoid">
             {/* Nome da empresa */}
-            <div className="flex items-center justify-between mb-3 pb-2 border-b-2 border-[#001F3F]">
-              <h2 className="font-black text-[#001F3F] text-base uppercase tracking-wide">{nome}</h2>
-              <div className="flex gap-6 text-xs text-right">
+            <div className="flex items-center justify-between mb-4 pb-3 border-b border-[#17150F]">
+              <h2 className="font-display text-lg text-[#17150F]">{nome}</h2>
+              <div className="flex gap-8 text-xs text-right">
                 <div>
-                  <p className="text-slate-400 font-bold uppercase tracking-wider">Economia Total</p>
-                  <p className="font-black text-emerald-700">{fmt(totalEco)}</p>
+                  <p className="text-[#78736A] font-medium uppercase tracking-wider">Economia Total</p>
+                  <p className="font-semibold tabular-nums" style={{ color: P_GOLD }}>{fmt(totalEco)}</p>
                 </div>
                 {trigoMed !== null && (
                   <div>
-                    <p className="text-slate-400 font-bold uppercase tracking-wider">% Trigo Médio</p>
-                    <p className={`font-black ${trigoMed >= 7 ? 'text-emerald-700' : 'text-amber-600'}`}>{fmtPct(trigoMed)}</p>
+                    <p className="text-[#78736A] font-medium uppercase tracking-wider">% Trigo Médio</p>
+                    <p className="font-semibold tabular-nums" style={{ color: trigoMed >= 7 ? P_GOLD : P_NEGATIVE }}>{fmtPct(trigoMed)}</p>
                   </div>
                 )}
               </div>
@@ -149,20 +164,20 @@ function PrintablePainelReport({ empresasFiltradas, totalEconomiaGeral, trigoMed
 
             <table className="w-full border-collapse text-[12px]">
               <thead>
-                <tr className="bg-slate-100">
-                  <th className="text-left py-2 px-3 font-bold uppercase tracking-wider text-slate-500">Mês</th>
-                  <th className="text-right py-2 px-3 font-bold uppercase tracking-wider text-slate-500">Comerc.</th>
-                  <th className="text-right py-2 px-3 font-bold uppercase tracking-wider text-slate-500">C. Trigo</th>
-                  <th className="text-right py-2 px-3 font-bold uppercase tracking-wider text-slate-500">% Trigo</th>
-                  <th className="text-right py-2 px-3 font-bold uppercase tracking-wider text-slate-500">Teria Economizado</th>
-                  <th className="text-right py-2 px-3 font-bold uppercase tracking-wider text-slate-500">ICMS Simulado Forn. Simples</th>
-                  <th className="text-right py-2 px-3 font-bold uppercase tracking-wider text-slate-500">ICMS Pago (Simples)</th>
-                  <th className="text-right py-2 px-3 font-bold uppercase tracking-wider text-slate-500">ICMS Total</th>
-                  <th className="text-right py-2 px-3 font-bold uppercase tracking-wider text-slate-500">Qtd. Forn. Simples</th>
+                <tr className="border-b border-[#17150F]">
+                  <th className={pThCls}>Mês</th>
+                  <th className={pThClsRight}>Comerc.</th>
+                  <th className={pThClsRight}>C. Trigo</th>
+                  <th className={pThClsRight}>% Trigo</th>
+                  <th className={pThClsRight}>Teria Economizado</th>
+                  <th className={pThClsRight}>ICMS Simulado Forn. Simples</th>
+                  <th className={pThClsRight}>ICMS Pago (Simples)</th>
+                  <th className={pThClsRight}>ICMS Total</th>
+                  <th className={pThClsRight}>Qtd. Forn. Simples</th>
                 </tr>
               </thead>
               <tbody>
-                {ordenadas.map(a => {
+                {ordenadas.map((a, idx) => {
                   const ativos = a.fornecedores.filter(f => !f.descartado);
                   const eco = round(ativos.reduce((acc, f) => acc + f.economia, 0));
                   const pago = round(ativos.reduce((acc, f) => acc + f.icmsPago, 0));
@@ -174,39 +189,39 @@ function PrintablePainelReport({ empresasFiltradas, totalEconomiaGeral, trigoMed
                   const normalIcms = round(normalRow?.icmsAntecipado ?? 0);
                   const icmsTotal = round(normalIcms + pago);
                   return (
-                    <tr key={a.id} className="border-t border-slate-100">
-                      <td className="py-2 px-3 font-black text-[#001F3F]">{a.mesReferencia}</td>
-                      <td className="py-2 px-3 text-right text-slate-600 font-semibold">{comerc !== null ? fmt(comerc) : <span className="text-slate-300">—</span>}</td>
-                      <td className="py-2 px-3 text-right text-amber-700 font-semibold">{cTrigo !== null ? fmt(cTrigo) : <span className="text-slate-300">—</span>}</td>
-                      <td className="py-2 px-3 text-right">
+                    <tr key={a.id} className={pRowCls(idx)}>
+                      <td className="py-2 px-3 font-medium text-[#17150F]">{a.mesReferencia}</td>
+                      <td className="py-2 px-3 text-right tabular-nums text-[#5E594F]">{comerc !== null ? fmt(comerc) : <span className="text-[#A29C92]">—</span>}</td>
+                      <td className="py-2 px-3 text-right tabular-nums font-medium" style={{ color: P_GOLD }}>{cTrigo !== null ? fmt(cTrigo) : <span className="text-[#A29C92]">—</span>}</td>
+                      <td className="py-2 px-3 text-right tabular-nums">
                         {pct !== null && pct !== undefined
-                          ? <span className={`font-black ${pct >= 7 ? 'text-emerald-700' : 'text-amber-600'}`}>{fmtPct(pct)}</span>
-                          : <span className="text-slate-300">—</span>}
+                          ? <span className="font-semibold" style={{ color: pct >= 7 ? P_GOLD : P_NEGATIVE }}>{fmtPct(pct)}</span>
+                          : <span className="text-[#A29C92]">—</span>}
                       </td>
-                      <td className="py-2 px-3 text-right font-bold text-slate-500">{fmt(eco)}</td>
-                      <td className="py-2 px-3 text-right text-blue-700 font-semibold">{fmt(proj)}</td>
-                      <td className="py-2 px-3 text-right text-red-600 font-semibold">{fmt(pago)}</td>
-                      <td className="py-2 px-3 text-right text-slate-700 font-black">{fmt(icmsTotal)}</td>
-                      <td className="py-2 px-3 text-right text-slate-500 font-bold">{new Set(ativos.map(f => f.nome)).size}</td>
+                      <td className="py-2 px-3 text-right tabular-nums font-medium text-[#17150F]">{fmt(eco)}</td>
+                      <td className="py-2 px-3 text-right tabular-nums text-[#5E594F]">{fmt(proj)}</td>
+                      <td className="py-2 px-3 text-right tabular-nums text-[#5E594F]">{fmt(pago)}</td>
+                      <td className="py-2 px-3 text-right tabular-nums font-semibold text-[#17150F]">{fmt(icmsTotal)}</td>
+                      <td className="py-2 px-3 text-right tabular-nums text-[#5E594F]">{new Set(ativos.map(f => f.nome)).size}</td>
                     </tr>
                   );
                 })}
               </tbody>
               <tfoot>
-                <tr className="border-t-2 border-slate-300 bg-slate-50">
-                  <td className="py-2 px-3 font-black text-slate-600 uppercase text-xs tracking-wider">Total</td>
-                  <td className="py-2 px-3 text-right font-black text-slate-600">{totalComerc > 0 ? fmt(totalComerc) : <span className="text-slate-300 font-normal">—</span>}</td>
-                  <td className="py-2 px-3 text-right font-black text-amber-700">
-                    {(() => { const t = round(ordenadas.reduce((acc, a) => acc + (a.trigoSelectedTotal ?? 0), 0)); return t > 0 ? fmt(t) : <span className="text-slate-300 font-normal">—</span>; })()}
+                <tr className="border-t-2 border-[#17150F] font-semibold">
+                  <td className="py-3 px-3 uppercase text-[10px] tracking-wider text-[#5E594F]">Total</td>
+                  <td className="py-3 px-3 text-right tabular-nums">{totalComerc > 0 ? fmt(totalComerc) : <span className="text-[#A29C92] font-normal">—</span>}</td>
+                  <td className="py-3 px-3 text-right tabular-nums" style={{ color: P_GOLD }}>
+                    {(() => { const t = round(ordenadas.reduce((acc, a) => acc + (a.trigoSelectedTotal ?? 0), 0)); return t > 0 ? fmt(t) : <span className="text-[#A29C92] font-normal">—</span>; })()}
                   </td>
-                  <td className="py-2 px-3 text-right">
-                    {trigoMed !== null && <span className={`font-black ${trigoMed >= 7 ? 'text-emerald-700' : 'text-amber-600'}`}>{fmtPct(trigoMed)}</span>}
+                  <td className="py-3 px-3 text-right tabular-nums">
+                    {trigoMed !== null && <span style={{ color: trigoMed >= 7 ? P_GOLD : P_NEGATIVE }}>{fmtPct(trigoMed)}</span>}
                   </td>
-                  <td className="py-2 px-3 text-right font-black text-slate-500">{fmt(totalEco)}</td>
-                  <td className="py-2 px-3 text-right font-black text-blue-700">{fmt(totalProj)}</td>
-                  <td className="py-2 px-3 text-right font-black text-red-600">{fmt(totalPago)}</td>
-                  <td className="py-2 px-3 text-right font-black text-slate-700">{fmt(totalPagoGlobal)}</td>
-                  <td className="py-2 px-3 text-right font-black text-slate-500">
+                  <td className="py-3 px-3 text-right tabular-nums">{fmt(totalEco)}</td>
+                  <td className="py-3 px-3 text-right tabular-nums">{fmt(totalProj)}</td>
+                  <td className="py-3 px-3 text-right tabular-nums">{fmt(totalPago)}</td>
+                  <td className="py-3 px-3 text-right tabular-nums">{fmt(totalPagoGlobal)}</td>
+                  <td className="py-3 px-3 text-right tabular-nums">
                     {round(ordenadas.reduce((acc, a) => acc + new Set(a.fornecedores.filter(f => !f.descartado).map(f => f.nome)).size, 0) / (ordenadas.length || 1))}
                     <span className="text-[10px] font-normal">/mês</span>
                   </td>
