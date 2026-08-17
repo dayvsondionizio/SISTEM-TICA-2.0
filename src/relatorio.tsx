@@ -1,6 +1,22 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import type { AuditoriaSalva, SummaryRowSalvo } from './storage';
+import { carregarClientes, type AuditoriaSalva, type SummaryRowSalvo } from './storage';
+
+function useCnpjPorNome(nomeEmpresa: string | undefined): string | undefined {
+  const [cnpj, setCnpj] = useState<string | undefined>(undefined);
+  useEffect(() => {
+    if (!nomeEmpresa) return;
+    let ativo = true;
+    carregarClientes().then(lista => {
+      if (!ativo) return;
+      const alvo = nomeEmpresa.trim().toLowerCase();
+      const encontrado = lista.find(c => c.nome.trim().toLowerCase() === alvo);
+      setCnpj(encontrado?.cnpj || undefined);
+    });
+    return () => { ativo = false; };
+  }, [nomeEmpresa]);
+  return cnpj;
+}
 
 // ─── TIPOS INTERNOS (espelham os de App.tsx) ─────────────────────────────────
 interface SimplesSupplierData {
@@ -193,6 +209,9 @@ export function PrintableIcmsReport({ data, summaryTable, fileName, mes, wheatPr
 
 // ─── RELATÓRIO TRIGO (idêntico ao bloco wheat de App.tsx) ────────────────────
 interface TrigoReportProps {
+  nomeEmpresa?: string;
+  cnpj?: string;
+  mesReferencia?: string;
   wheatPrintData: {
     selectedTotal: number;
     questorTotal: number | null;
@@ -202,7 +221,7 @@ interface TrigoReportProps {
   };
 }
 
-export function PrintableTrigoReport({ wheatPrintData }: TrigoReportProps) {
+export function PrintableTrigoReport({ nomeEmpresa, cnpj, mesReferencia, wheatPrintData }: TrigoReportProps) {
   return (
     <div className="print:block p-14 bg-[#FCFBF8] min-h-screen text-[#17150F] font-report">
       <div className="max-w-[210mm] mx-auto">
@@ -214,6 +233,13 @@ export function PrintableTrigoReport({ wheatPrintData }: TrigoReportProps) {
               <span className="italic" style={{ color: GOLD }}>Sistemática de Panificação</span>
             </h1>
             <p className="text-[14px] text-[#5E594F] font-medium mt-1">Relatório de auditoria e verificação da regra dos 7%</p>
+            {nomeEmpresa && (
+              <p className="text-[15px] font-semibold text-[#17150F] mt-3">
+                {nomeEmpresa}
+                {cnpj && <span className="text-[13px] font-normal text-[#78736A] ml-2">CNPJ {cnpj}</span>}
+              </p>
+            )}
+            {mesReferencia && <p className="text-[12px] text-[#78736A] mt-0.5">Período de referência: {mesReferencia}</p>}
           </div>
           <span className="inline-flex items-center bg-[#17150F] px-4 py-2 shrink-0">
             <img src="/logo-white.png" alt="Contador de Padarias" className="h-7 w-auto" />
@@ -299,6 +325,7 @@ export function PrintOverlayMulti({ auditorias, modo, onDone }: PrintOverlayMult
   });
 
   const empresa = sorted[0]?.nomeEmpresa ?? '';
+  const cnpjEmpresa = useCnpjPorNome(empresa);
   const periodoInicio = sorted[0]?.mesReferencia ?? '';
   const periodoFim = sorted[sorted.length - 1]?.mesReferencia ?? '';
   const periodo = periodoInicio === periodoFim ? periodoInicio : `${periodoInicio} a ${periodoFim}`;
@@ -589,7 +616,10 @@ export function PrintOverlayMulti({ auditorias, modo, onDone }: PrintOverlayMult
               Validação Técnica <span className="text-[#A29C92]">—</span>{' '}
               <span className="italic" style={{ color: GOLD }}>Sistemática de Panificação</span>
             </h1>
-            <p className="text-[15px] font-semibold text-[#17150F] mt-1">{empresa}</p>
+            <p className="text-[15px] font-semibold text-[#17150F] mt-1">
+              {empresa}
+              {cnpjEmpresa && <span className="text-[13px] font-normal text-[#78736A] ml-2">CNPJ {cnpjEmpresa}</span>}
+            </p>
             <p className="text-[13px] text-[#5E594F] font-medium">Relatório consolidado · Período: {periodo} · {sorted.length} meses</p>
           </div>
           <span className="inline-flex items-center bg-[#17150F] px-4 py-2 shrink-0">
@@ -752,6 +782,8 @@ interface PrintOverlayProps {
 }
 
 export function PrintOverlay({ auditoria, modo, onDone, incluirTrigo = true }: PrintOverlayProps) {
+  const cnpjEmpresa = useCnpjPorNome(auditoria.nomeEmpresa);
+
   // monta dados de fornecedores ativos → formato SimplesSupplierData
   const rnd = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
   const ativos = auditoria.fornecedores.filter(f => !f.descartado);
@@ -873,7 +905,12 @@ export function PrintOverlay({ auditoria, modo, onDone, incluirTrigo = true }: P
         )}
 
         {modo === 'trigo' && wheatForTrigo && (
-          <PrintableTrigoReport wheatPrintData={wheatForTrigo} />
+          <PrintableTrigoReport
+            nomeEmpresa={auditoria.nomeEmpresa}
+            cnpj={cnpjEmpresa}
+            mesReferencia={auditoria.mesReferencia}
+            wheatPrintData={wheatForTrigo}
+          />
         )}
       </div>
     </>
