@@ -222,6 +222,14 @@ interface TrigoReportProps {
 }
 
 export function PrintableTrigoReport({ nomeEmpresa, cnpj, mesReferencia, wheatPrintData }: TrigoReportProps) {
+  const questorTotal = wheatPrintData.questorTotal ?? 0;
+  const faltaPontos = wheatPrintData.isOk || wheatPrintData.percentage === null
+    ? 0
+    : Math.max(0, round(7 - wheatPrintData.percentage));
+  const faltaParaMeta = wheatPrintData.isOk
+    ? 0
+    : Math.max(0, round(questorTotal * 0.07 - wheatPrintData.selectedTotal));
+
   return (
     <div className="print:block p-14 bg-[#FCFBF8] min-h-screen text-[#17150F] font-report">
       <div className="max-w-[210mm] mx-auto">
@@ -261,19 +269,31 @@ export function PrintableTrigoReport({ nomeEmpresa, cnpj, mesReferencia, wheatPr
           </div>
         </div>
 
-        <div className="flex items-center justify-between mb-14">
+        <div className="flex items-start justify-between gap-10 mb-8">
           <div>
-            <p className="text-lg font-medium text-[#17150F] mb-2">Resultado da Regra dos 7%:</p>
+            <p className="text-lg font-medium text-[#17150F] mb-2">% Trigo Apurado no Mês:</p>
             <p className="font-display font-semibold text-[42px] leading-none tabular-nums" style={{ color: wheatPrintData.isOk ? POSITIVE : NEGATIVE }}>
               {wheatPrintData.percentage ? `${wheatPrintData.percentage.toFixed(2).replace('.', ',')}%` : '0,00%'}
             </p>
           </div>
-          <div className="text-right">
-            {wheatPrintData.isOk
-              ? <span className="font-display italic font-semibold text-[36px]" style={{ color: POSITIVE }}>APROVADO</span>
-              : <span className="font-display italic font-semibold text-[36px]" style={{ color: NEGATIVE }}>REPROVADO</span>}
+          <div className="text-right shrink-0">
+            <p className="text-[10px] uppercase tracking-[0.2em] text-[#78736A] font-medium mb-2">Meta de Referência</p>
+            <p className="font-display text-[28px] text-[#17150F] leading-none tabular-nums">7,00%</p>
           </div>
         </div>
+
+        <p className="text-[12px] text-[#5E594F] leading-relaxed mb-14">
+          {wheatPrintData.isOk
+            ? 'Resultado parcial do mês. O enquadramento definitivo na sistemática de panificação é apurado ao final do semestre.'
+            : <>
+                Resultado parcial do mês, abaixo da meta de referência. O enquadramento definitivo é apurado ao final do semestre
+                {faltaPontos > 0 && (
+                  <>, mas faltaram <span className="font-semibold" style={{ color: NEGATIVE }}>{faltaPontos.toFixed(2).replace('.', ',')} pontos percentuais</span> para atingir os 7% neste mês — o equivalente a aproximadamente{' '}
+                    <span className="font-semibold" style={{ color: NEGATIVE }}>{fmtBRL(faltaParaMeta)}</span>
+                    {' '}a mais em compras de insumos de panificação (farinha e pré-misturas), mantida a mesma base de compras. Recomendamos reforçar essas compras no próximo mês para compensar a diferença</>
+                )}.
+              </>}
+        </p>
 
         <h3 className="text-[11px] uppercase tracking-[0.2em] text-[#78736A] font-medium mb-4 pb-3 border-b border-[#17150F]">
           Itens Classificados como Panificação (Marcados com ✓)
@@ -329,6 +349,13 @@ export function PrintOverlayMulti({ auditorias, modo, onDone }: PrintOverlayMult
   const periodoInicio = sorted[0]?.mesReferencia ?? '';
   const periodoFim = sorted[sorted.length - 1]?.mesReferencia ?? '';
   const periodo = periodoInicio === periodoFim ? periodoInicio : `${periodoInicio} a ${periodoFim}`;
+
+  // Resultado da sistemática de panificação no período (enquadramento real, apurado no semestre)
+  const totalQuestorTrigo = rnd(sorted.reduce((acc, a) => acc + (a.trigoQuestorTotal ?? 0), 0));
+  const totalSelectedTrigo = rnd(sorted.reduce((acc, a) => acc + (a.trigoSelectedTotal ?? 0), 0));
+  const totalPctTrigo = totalQuestorTrigo > 0 ? (totalSelectedTrigo / totalQuestorTrigo) * 100 : null;
+  const totalOkTrigo = totalPctTrigo !== null && totalPctTrigo >= 7;
+  const faltaPontosTotal = totalPctTrigo !== null && totalPctTrigo < 7 ? rnd(7 - totalPctTrigo) : 0;
 
   // Totais consolidados
   const totalSimples = rnd(sorted.reduce((acc, a) => {
@@ -627,6 +654,32 @@ export function PrintOverlayMulti({ auditorias, modo, onDone }: PrintOverlayMult
           </span>
         </div>
 
+        {/* Resultado do semestre — enquadramento real */}
+        <div className="pb-10 border-b border-[#E5E0D6]">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-lg font-medium text-[#17150F] mb-2">Resultado da Regra dos 7% no Período:</p>
+              <p className="font-display font-semibold text-[42px] leading-none tabular-nums" style={{ color: totalPctTrigo === null ? INK : totalOkTrigo ? POSITIVE : NEGATIVE }}>
+                {totalPctTrigo !== null ? `${totalPctTrigo.toFixed(2).replace('.', ',')}%` : '—'}
+              </p>
+            </div>
+            <div className="text-right">
+              {totalPctTrigo !== null && (
+                totalOkTrigo
+                  ? <span className="font-display italic font-semibold text-[36px]" style={{ color: POSITIVE }}>APROVADO</span>
+                  : <span className="font-display italic font-semibold text-[36px]" style={{ color: NEGATIVE }}>REPROVADO</span>
+              )}
+            </div>
+          </div>
+          {!totalOkTrigo && faltaPontosTotal > 0 && (
+            <p className="text-[12px] text-[#5E594F] leading-relaxed mt-4">
+              Faltaram <span className="font-semibold" style={{ color: NEGATIVE }}>{faltaPontosTotal.toFixed(2).replace('.', ',')} pontos percentuais</span> para atingir os 7% no período — o equivalente a aproximadamente{' '}
+              <span className="font-semibold" style={{ color: NEGATIVE }}>{fmtBRL(rnd(totalQuestorTrigo * 0.07 - totalSelectedTrigo))}</span>{' '}
+              a mais em compras de insumos de panificação, mantida a mesma base de compras do período.
+            </p>
+          )}
+        </div>
+
         {/* Tabela resumo por mês */}
         <div>
           <h2 className="font-display text-xl text-[#17150F] mb-5">Resumo por Mês</h2>
@@ -637,14 +690,14 @@ export function PrintOverlayMulti({ auditorias, modo, onDone }: PrintOverlayMult
                 <th className={thClsRight}>Total Compras</th>
                 <th className={thClsRight}>Trigo Validado</th>
                 <th className={thClsRight}>% Trigo</th>
-                <th className="py-3 pl-3 text-center text-[10px] uppercase tracking-wider text-[#78736A] font-medium">Regra 7%</th>
+                <th className={thClsRight}>Falta p/ Meta</th>
               </tr>
             </thead>
             <tbody>
               {sorted.map((a, idx) => {
                 const pct = a.percentualSistematica;
-                const ok = a.regra7pctAtendida;
                 const temTrigo = a.trigoItens && a.trigoItens.length > 0;
+                const faltaPontosMes = pct !== null && pct !== undefined && pct < 7 ? round(7 - pct) : 0;
                 return (
                   <tr key={a.id} className={rowCls(idx)}>
                     <td className="py-3 pr-3 font-medium text-[#17150F]">{a.mesReferencia}</td>
@@ -659,39 +712,35 @@ export function PrintOverlayMulti({ auditorias, modo, onDone }: PrintOverlayMult
                         ? <span className="font-bold" style={{ color: pct >= 7 ? POSITIVE : NEGATIVE }}>{pct.toFixed(2).replace('.', ',')}%</span>
                         : <span className="text-[#A29C92]">—</span>}
                     </td>
-                    <td className="py-3 pl-3 text-center font-semibold">
-                      {ok !== null && ok !== undefined
-                        ? <span className="font-bold" style={{ color: ok ? POSITIVE : NEGATIVE }}>{ok ? 'Aprovado' : 'Reprovado'}</span>
-                        : <span className="text-[#A29C92]">—</span>}
+                    <td className="py-3 pl-3 text-right tabular-nums">
+                      {pct === null || pct === undefined
+                        ? <span className="text-[#A29C92]">—</span>
+                        : faltaPontosMes > 0
+                          ? <span className="font-medium" style={{ color: NEGATIVE }}>{faltaPontosMes.toFixed(2).replace('.', ',')} p.p.</span>
+                          : <span className="text-[#A29C92]">—</span>}
                     </td>
                   </tr>
                 );
               })}
             </tbody>
             <tfoot>
-              {(() => {
-                const totalQuestor = sorted.reduce((acc, a) => acc + (a.trigoQuestorTotal ?? 0), 0);
-                const totalSelected = sorted.reduce((acc, a) => acc + (a.trigoSelectedTotal ?? 0), 0);
-                const totalPct = totalQuestor > 0 ? (totalSelected / totalQuestor) * 100 : null;
-                const totalOk = totalPct !== null && totalPct >= 7;
-                return (
-                  <tr className="border-t-2 border-[#17150F] font-semibold text-[12px]">
-                    <td className="py-4 pr-3 uppercase tracking-wide text-[10px] text-[#5E594F]">TOTAL</td>
-                    <td className="py-4 pr-3 text-right tabular-nums">{totalQuestor > 0 ? fmtBRL(totalQuestor) : <span className="text-[#A29C92]">—</span>}</td>
-                    <td className="py-4 pr-3 text-right tabular-nums" style={{ color: GOLD }}>{totalSelected > 0 ? fmtBRL(totalSelected) : <span className="text-[#A29C92]">—</span>}</td>
-                    <td className="py-4 pr-3 text-right tabular-nums">
-                      {totalPct !== null
-                        ? <span className="font-bold" style={{ color: totalOk ? POSITIVE : NEGATIVE }}>{totalPct.toFixed(2).replace('.', ',')}%</span>
-                        : <span className="text-[#A29C92]">—</span>}
-                    </td>
-                    <td className="py-4 pl-3 text-center">
-                      {totalPct !== null
-                        ? <span className="font-bold" style={{ color: totalOk ? POSITIVE : NEGATIVE }}>{totalOk ? 'Aprovado' : 'Reprovado'}</span>
-                        : <span className="text-[#A29C92]">—</span>}
-                    </td>
-                  </tr>
-                );
-              })()}
+              <tr className="border-t-2 border-[#17150F] font-semibold text-[12px]">
+                <td className="py-4 pr-3 uppercase tracking-wide text-[10px] text-[#5E594F]">TOTAL</td>
+                <td className="py-4 pr-3 text-right tabular-nums">{totalQuestorTrigo > 0 ? fmtBRL(totalQuestorTrigo) : <span className="text-[#A29C92]">—</span>}</td>
+                <td className="py-4 pr-3 text-right tabular-nums" style={{ color: GOLD }}>{totalSelectedTrigo > 0 ? fmtBRL(totalSelectedTrigo) : <span className="text-[#A29C92]">—</span>}</td>
+                <td className="py-4 pr-3 text-right tabular-nums">
+                  {totalPctTrigo !== null
+                    ? <span className="font-bold" style={{ color: totalOkTrigo ? POSITIVE : NEGATIVE }}>{totalPctTrigo.toFixed(2).replace('.', ',')}%</span>
+                    : <span className="text-[#A29C92]">—</span>}
+                </td>
+                <td className="py-4 pl-3 text-right tabular-nums">
+                  {totalPctTrigo === null
+                    ? <span className="text-[#A29C92]">—</span>
+                    : faltaPontosTotal > 0
+                      ? <span className="font-bold" style={{ color: NEGATIVE }}>{faltaPontosTotal.toFixed(2).replace('.', ',')} p.p.</span>
+                      : <span className="text-[#A29C92]">—</span>}
+                </td>
+              </tr>
             </tfoot>
           </table>
         </div>
@@ -706,7 +755,7 @@ export function PrintOverlayMulti({ auditorias, modo, onDone }: PrintOverlayMult
                 <h3 className="font-display text-lg text-[#17150F]">{a.mesReferencia}</h3>
                 {a.percentualSistematica !== null && a.percentualSistematica !== undefined && (
                   <span className="text-[13px] font-bold" style={{ color: a.regra7pctAtendida ? POSITIVE : NEGATIVE }}>
-                    {a.percentualSistematica.toFixed(2).replace('.', ',')}% {a.regra7pctAtendida ? '— APROVADO' : '— REPROVADO'}
+                    {a.percentualSistematica.toFixed(2).replace('.', ',')}%
                   </span>
                 )}
               </div>
