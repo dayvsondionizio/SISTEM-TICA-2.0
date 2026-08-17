@@ -68,6 +68,14 @@ export function PrintableIcmsReport({ data, summaryTable, fileName, mes, wheatPr
   const totalProjetadoIdeal = round(totalPagoReal - totalSimples + totalProjected);
   const totalDiff       = round(totalPagoReal - totalProjetadoIdeal);
 
+  const wheatQuestorTotal = wheatPrintData?.questorTotal ?? 0;
+  const wheatFaltaPontos = wheatPrintData?.isConfirmed && !wheatPrintData.isOk && wheatPrintData.percentage !== null
+    ? Math.max(0, round(7 - wheatPrintData.percentage))
+    : 0;
+  const wheatFaltaValor = wheatPrintData?.isConfirmed && !wheatPrintData.isOk
+    ? Math.max(0, round(wheatQuestorTotal * 0.07 - wheatPrintData.selectedTotal))
+    : 0;
+
   return (
     <div className="bg-[#EDEAE2] py-12 print:p-0 print:bg-white text-[#17150F] font-report">
       <div className="max-w-[210mm] mx-auto space-y-12 print:space-y-0 shadow-2xl print:shadow-none">
@@ -170,11 +178,16 @@ export function PrintableIcmsReport({ data, summaryTable, fileName, mes, wheatPr
               <p className="border-l-2 border-[#C9A227] pl-6 py-1 text-[#5E594F] break-inside-avoid">
                 A título de Validação Técnica da Sistemática de Panificação, registramos um montante total de compras para comercialização de{' '}
                 <span className="font-semibold whitespace-nowrap text-[#17150F]">{fmtBRL(wheatPrintData.questorTotal || 0)}</span>, no qual identificamos{' '}
-                <span className="font-semibold whitespace-nowrap text-[#17150F]">{fmtBRL(wheatPrintData.selectedTotal)}</span> em aquisições validadas pelo analista como insumos de panificação (trigo/pré-misturas). Isso{' '}
-                <span className="font-semibold text-[#17150F]">{wheatPrintData.isOk ? 'atesta o cumprimento' : 'registra o não cumprimento'}</span> da regra dos 7%, alcançando o índice de{' '}
+                <span className="font-semibold whitespace-nowrap text-[#17150F]">{fmtBRL(wheatPrintData.selectedTotal)}</span> em aquisições validadas pelo analista como insumos de panificação (trigo/pré-misturas), alcançando o índice de{' '}
                 <span className="font-display italic font-semibold ml-2" style={{ color: GOLD, fontSize: '1.4em' }}>
                   {wheatPrintData.percentage ? wheatPrintData.percentage.toFixed(2).replace('.', ',') : '0,00'}%
-                </span>.
+                </span>{' '}
+                neste mês. {wheatFaltaPontos > 0 ? (
+                  <>Faltaram <span className="font-semibold" style={{ color: NEGATIVE }}>{wheatFaltaPontos.toFixed(2).replace('.', ',')} pontos percentuais</span> para atingir a meta de 7% — o equivalente a aproximadamente{' '}
+                    <span className="font-semibold" style={{ color: NEGATIVE }}>{fmtBRL(wheatFaltaValor)}</span>{' '}
+                    a mais em compras de insumos de panificação, mantida a mesma base de compras. </>
+                ) : null}
+                O enquadramento definitivo na sistemática é apurado ao final do semestre.
               </p>
             )}
 
