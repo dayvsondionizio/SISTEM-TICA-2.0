@@ -4,7 +4,7 @@ import { type Cliente, carregarClientes, persistirClientes } from './storage';
 
 export type { Cliente };
 
-function formatarCnpj(value: string) {
+export function formatarCnpj(value: string) {
   const digits = value.replace(/\D/g, '').slice(0, 14);
   return digits
     .replace(/^(\d{2})(\d)/, '$1.$2')

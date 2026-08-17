@@ -41,7 +41,7 @@ import { PrintOverlay, PrintOverlayMulti } from './relatorio';
 import { salvarAuditoria, carregarClientes, carregarHistorico, excluirAuditoria, salvarRascunho, carregarRascunhos, excluirRascunho, type Cliente, type RascunhoAuditoria, type BakeryItemSalvo } from './storage';
 import { groqChat } from './groqClient';
 import { ModalSalvarRascunho, EditorRascunho, CardRascunho } from './rascunho';
-import { TelaClientes } from './clientes';
+import { TelaClientes, formatarCnpj } from './clientes';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   BarChart, 
@@ -910,7 +910,7 @@ function TelaHome({ onSelectCliente, onOpenClientes, onOpenHistorico, onOpenPain
                       />
                       <input
                         className="w-full bg-white/10 border border-white/20 rounded-xl px-3 py-2 text-white/60 text-xs font-mono outline-none focus:border-[#F5C000]"
-                        value={editCnpj} onChange={e => setEditCnpj(e.target.value)} placeholder="CNPJ (opcional)"
+                        value={editCnpj} onChange={e => setEditCnpj(formatarCnpj(e.target.value))} placeholder="CNPJ (opcional)"
                       />
                       <div className="flex gap-2 pt-1">
                         <button onClick={handleSalvarEdicao} className="flex-1 bg-[#F5C000] text-[#001F3F] text-xs font-black py-2 rounded-xl">Salvar</button>
