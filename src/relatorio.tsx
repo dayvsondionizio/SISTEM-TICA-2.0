@@ -370,6 +370,16 @@ export function PrintOverlayMulti({ auditorias, modo, onDone }: PrintOverlayMult
   const totalOkTrigo = totalPctTrigo !== null && totalPctTrigo >= 7;
   const faltaPontosTotal = totalPctTrigo !== null && totalPctTrigo < 7 ? rnd(7 - totalPctTrigo) : 0;
 
+  // O veredito (aprovado/reprovado) só é real quando a seleção é um semestre fechado (Jan-Jun ou Jul-Dez).
+  // Qualquer outro recorte (2, 3, 4, 5 meses, ou 6 meses fora desse alinhamento) é apenas um checkpoint parcial.
+  const mesesInfo = sorted.map(a => {
+    const [m, y] = a.mesReferencia.split('/');
+    return { m: parseInt(m || '0'), y: parseInt(y || '0') };
+  });
+  const isSemestreCompleto = mesesInfo.length === 6
+    && mesesInfo[0].m % 6 === 1
+    && mesesInfo.every((mo, i) => mo.y === mesesInfo[0].y && mo.m === mesesInfo[0].m + i);
+
   // Totais consolidados
   const totalSimples = rnd(sorted.reduce((acc, a) => {
     const ativos = a.fornecedores.filter(f => !f.descartado);
@@ -667,28 +677,47 @@ export function PrintOverlayMulti({ auditorias, modo, onDone }: PrintOverlayMult
           </span>
         </div>
 
-        {/* Resultado do semestre — enquadramento real */}
+        {/* Resultado do período — veredito real só quando é um semestre fechado */}
         <div className="pb-10 border-b border-[#E5E0D6]">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-lg font-medium text-[#17150F] mb-2">Resultado da Regra dos 7% no Período:</p>
+              <p className="text-lg font-medium text-[#17150F] mb-2">
+                {isSemestreCompleto ? 'Resultado da Regra dos 7% no Semestre:' : '% Trigo Apurado no Período Selecionado:'}
+              </p>
               <p className="font-display font-semibold text-[42px] leading-none tabular-nums" style={{ color: totalPctTrigo === null ? INK : totalOkTrigo ? POSITIVE : NEGATIVE }}>
                 {totalPctTrigo !== null ? `${totalPctTrigo.toFixed(2).replace('.', ',')}%` : '—'}
               </p>
             </div>
             <div className="text-right">
-              {totalPctTrigo !== null && (
+              {isSemestreCompleto && totalPctTrigo !== null && (
                 totalOkTrigo
                   ? <span className="font-display italic font-semibold text-[36px]" style={{ color: POSITIVE }}>APROVADO</span>
                   : <span className="font-display italic font-semibold text-[36px]" style={{ color: NEGATIVE }}>REPROVADO</span>
               )}
+              {!isSemestreCompleto && (
+                <>
+                  <p className="text-[10px] uppercase tracking-[0.2em] text-[#78736A] font-medium mb-2">Meta de Referência</p>
+                  <p className="font-display text-[28px] text-[#17150F] leading-none tabular-nums">7,00%</p>
+                </>
+              )}
             </div>
           </div>
-          {!totalOkTrigo && faltaPontosTotal > 0 && (
+          {isSemestreCompleto ? (
+            !totalOkTrigo && faltaPontosTotal > 0 && (
+              <p className="text-[12px] text-[#5E594F] leading-relaxed mt-4">
+                Faltaram <span className="font-semibold" style={{ color: NEGATIVE }}>{faltaPontosTotal.toFixed(2).replace('.', ',')} pontos percentuais</span> para atingir os 7% no semestre — o equivalente a aproximadamente{' '}
+                <span className="font-semibold" style={{ color: NEGATIVE }}>{fmtBRL(rnd(totalQuestorTrigo * 0.07 - totalSelectedTrigo))}</span>{' '}
+                a mais em compras de insumos de panificação, mantida a mesma base de compras do período.
+              </p>
+            )
+          ) : (
             <p className="text-[12px] text-[#5E594F] leading-relaxed mt-4">
-              Faltaram <span className="font-semibold" style={{ color: NEGATIVE }}>{faltaPontosTotal.toFixed(2).replace('.', ',')} pontos percentuais</span> para atingir os 7% no período — o equivalente a aproximadamente{' '}
-              <span className="font-semibold" style={{ color: NEGATIVE }}>{fmtBRL(rnd(totalQuestorTrigo * 0.07 - totalSelectedTrigo))}</span>{' '}
-              a mais em compras de insumos de panificação, mantida a mesma base de compras do período.
+              Resultado parcial do período selecionado ({sorted.length} {sorted.length === 1 ? 'mês' : 'meses'}). O enquadramento definitivo na sistemática de panificação é apurado ao final do semestre completo.
+              {!totalOkTrigo && faltaPontosTotal > 0 && (
+                <> Faltaram <span className="font-semibold" style={{ color: NEGATIVE }}>{faltaPontosTotal.toFixed(2).replace('.', ',')} pontos percentuais</span> para atingir os 7% neste período — o equivalente a aproximadamente{' '}
+                  <span className="font-semibold" style={{ color: NEGATIVE }}>{fmtBRL(rnd(totalQuestorTrigo * 0.07 - totalSelectedTrigo))}</span>{' '}
+                  a mais em compras de insumos de panificação, mantida a mesma base de compras.</>
+              )}
             </p>
           )}
         </div>
