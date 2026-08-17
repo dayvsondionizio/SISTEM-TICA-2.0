@@ -278,10 +278,6 @@ export function PrintableTrigoReport({ wheatPrintData }: TrigoReportProps) {
             )}
           </tbody>
         </table>
-
-        <div className="mt-16 pt-6 border-t border-[#E5E0D6] text-center text-[10px] uppercase tracking-[0.15em] text-[#A29C92]">
-          Assinatura Eletrônica do Analista: _______________________________
-        </div>
       </div>
     </div>
   );
