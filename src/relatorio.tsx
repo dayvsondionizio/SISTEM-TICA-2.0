@@ -790,10 +790,10 @@ export function PrintOverlayMulti({ auditorias, modo, onDone }: PrintOverlayMult
         {/* Detalhe por mês */}
         {sorted.map(a => {
           const itens = a.trigoItens ?? [];
-          if (itens.length === 0) return null;
+          const semItens = itens.length === 0;
           return (
             <div key={a.id} className="break-inside-avoid">
-              <div className="flex items-baseline gap-3 mb-4 pb-3 border-b border-[#E5E0D6]">
+              <div className={`flex items-baseline gap-3 pb-3 border-b border-[#E5E0D6] ${semItens ? 'mb-5' : 'mb-4'}`}>
                 <h3 className="font-display text-lg text-[#17150F]">{a.mesReferencia}</h3>
                 {a.percentualSistematica !== null && a.percentualSistematica !== undefined && (
                   <span className="text-[13px] font-bold" style={{ color: a.regra7pctAtendida ? POSITIVE : NEGATIVE }}>
@@ -801,37 +801,46 @@ export function PrintOverlayMulti({ auditorias, modo, onDone }: PrintOverlayMult
                   </span>
                 )}
               </div>
-              <div className="flex gap-10 mb-5">
+              {semItens ? (
                 <div>
                   <p className="text-[10px] uppercase tracking-[0.2em] text-[#78736A] font-medium mb-1">Total Compras</p>
                   <p className="font-display text-xl text-[#17150F] tabular-nums">{a.trigoQuestorTotal ? fmtBRL(a.trigoQuestorTotal) : '—'}</p>
                 </div>
-                <div>
-                  <p className="text-[10px] uppercase tracking-[0.2em] font-medium mb-1" style={{ color: GOLD }}>Trigo Validado</p>
-                  <p className="font-display text-xl tabular-nums" style={{ color: GOLD }}>{fmtBRL(a.trigoSelectedTotal ?? 0)}</p>
-                </div>
-              </div>
-              <table className="w-full text-left text-[11px] border-collapse">
-                <thead>
-                  <tr className="border-b border-[#17150F]">
-                    <th className={thCls}>Produto</th>
-                    <th className={thCls}>Fornecedor</th>
-                    <th className={thClsRight}>Valor</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {itens.map((item, i) => (
-                    <tr key={i} className="border-b border-[#EFEBE3]">
-                      <td className="py-2 pr-3 font-medium text-[#17150F]">
-                        {item.description}
-                        {item.ncm && <span className="font-normal text-[#A29C92] ml-2">NCM: {item.ncm}</span>}
-                      </td>
-                      <td className="py-2 pr-3 text-[#5E594F]">{item.supplier}</td>
-                      <td className="py-2 pl-3 text-right tabular-nums font-medium text-[#17150F]">{fmtBRL(item.value)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              ) : (
+                <>
+                  <div className="flex gap-10 mb-5">
+                    <div>
+                      <p className="text-[10px] uppercase tracking-[0.2em] text-[#78736A] font-medium mb-1">Total Compras</p>
+                      <p className="font-display text-xl text-[#17150F] tabular-nums">{a.trigoQuestorTotal ? fmtBRL(a.trigoQuestorTotal) : '—'}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] uppercase tracking-[0.2em] font-medium mb-1" style={{ color: GOLD }}>Trigo Validado</p>
+                      <p className="font-display text-xl tabular-nums" style={{ color: GOLD }}>{fmtBRL(a.trigoSelectedTotal ?? 0)}</p>
+                    </div>
+                  </div>
+                  <table className="w-full text-left text-[11px] border-collapse">
+                    <thead>
+                      <tr className="border-b border-[#17150F]">
+                        <th className={thCls}>Produto</th>
+                        <th className={thCls}>Fornecedor</th>
+                        <th className={thClsRight}>Valor</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {itens.map((item, i) => (
+                        <tr key={i} className="border-b border-[#EFEBE3]">
+                          <td className="py-2 pr-3 font-medium text-[#17150F]">
+                            {item.description}
+                            {item.ncm && <span className="font-normal text-[#A29C92] ml-2">NCM: {item.ncm}</span>}
+                          </td>
+                          <td className="py-2 pr-3 text-[#5E594F]">{item.supplier}</td>
+                          <td className="py-2 pl-3 text-right tabular-nums font-medium text-[#17150F]">{fmtBRL(item.value)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </>
+              )}
             </div>
           );
         })}
