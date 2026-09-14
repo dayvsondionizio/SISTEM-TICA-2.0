@@ -207,9 +207,7 @@ export function PrintableIcmsReport({ data, summaryTable, fileName, mes, wheatPr
               Agradecemos pela confiança em nossos serviços e estamos comprometidos em ajudá-lo(a) a alcançar a eficiência tributária e a lucratividade sustentável em seu negócio.
             </p>
             <div className="pt-16 break-inside-avoid flex items-center gap-4">
-              <span className="inline-flex items-center bg-[#17150F] px-4 py-2">
-                <img src="/logo-white.png" alt="Contador de Padarias" className="h-7 w-auto" />
-              </span>
+              <img src="/logo-black.png" alt="Contador de Padarias" className="h-7 w-auto" />
               <p className="font-display italic text-lg text-[#17150F]">Atenciosamente,</p>
             </div>
           </div>
@@ -262,9 +260,7 @@ export function PrintableTrigoReport({ nomeEmpresa, cnpj, mesReferencia, wheatPr
             )}
             {mesReferencia && <p className="text-[12px] text-[#78736A] mt-0.5">Período de referência: {mesReferencia}</p>}
           </div>
-          <span className="inline-flex items-center bg-[#17150F] px-4 py-2 shrink-0">
-            <img src="/logo-white.png" alt="Contador de Padarias" className="h-7 w-auto" />
-          </span>
+          <img src="/logo-black.png" alt="Contador de Padarias" className="h-8 w-auto shrink-0" />
         </div>
 
         <div className="grid grid-cols-2 gap-10 mb-12 pb-10 border-b border-[#E5E0D6]">
@@ -643,9 +639,7 @@ export function PrintOverlayMulti({ auditorias, modo, onDone }: PrintOverlayMult
             <p>Caso necessite de suporte adicional, estamos à disposição para fornecer orientações personalizadas e auxiliá-lo(a) na busca por soluções que otimizem sua gestão financeira.</p>
             <p>Agradecemos pela confiança em nossos serviços e estamos comprometidos em ajudá-lo(a) a alcançar a eficiência tributária e a lucratividade sustentável em seu negócio.</p>
             <div className="pt-16 flex items-center gap-4">
-              <span className="inline-flex items-center bg-[#17150F] px-4 py-2">
-                <img src="/logo-white.png" alt="Contador de Padarias" className="h-7 w-auto" />
-              </span>
+              <img src="/logo-black.png" alt="Contador de Padarias" className="h-7 w-auto" />
               <p className="font-display italic text-lg text-[#17150F]">Atenciosamente,</p>
             </div>
           </div>
@@ -672,9 +666,7 @@ export function PrintOverlayMulti({ auditorias, modo, onDone }: PrintOverlayMult
             </p>
             <p className="text-[13px] text-[#5E594F] font-medium">Relatório consolidado · Período: {periodo} · {sorted.length} meses</p>
           </div>
-          <span className="inline-flex items-center bg-[#17150F] px-4 py-2 shrink-0">
-            <img src="/logo-white.png" alt="Contador de Padarias" className="h-7 w-auto" />
-          </span>
+          <img src="/logo-black.png" alt="Contador de Padarias" className="h-8 w-auto shrink-0" />
         </div>
 
         {/* Resultado do período — veredito real só quando é um semestre fechado */}
