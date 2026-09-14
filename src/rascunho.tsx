@@ -133,31 +133,50 @@ export function EditorRascunho({ rascunho, onFinalizar, onSalvarAlteracoes, onCl
     setIaAnalisando(true);
     setIaAviso(null);
     try {
-      const productList = items.map((p, idx) =>
-        `${idx}: ${p.description}${p.ncm ? ` [NCM: ${p.ncm}]` : ''} - Fornecedor: ${p.supplier}`
-      ).join('\n');
-      const prompt = `Você é um auditor fiscal especializado em panificação. Avalie cada item e recomende se deve ou não ser contado na sistemática de panificação (regra dos 7%).\n\nContar: farinhas de trigo, pré-misturas, semolina, trigo em grão.\nNão contar: itens que não são insumo de panificação.\n\nResponda SOMENTE com JSON array:\n[{"index":0,"shouldCount":true,"confidence":"high","reason":"..."},...]\n\nProdutos:\n${productList}`;
-      const response = await groqChat({
-        model: 'openai/gpt-oss-120b',
-        messages: [{ role: 'user', content: prompt }],
-        temperature: 0,
-        max_tokens: 2000,
-      });
-      if (!response.ok) {
-        const err = await response.json();
-        throw new Error(err.error?.message || 'Erro Groq');
+      const BATCH_SIZE = 50;
+      const results: { index: number; shouldCount: boolean; confidence: string }[] = [];
+      let algumLoteFalhou = false;
+
+      for (let i = 0; i < items.length; i += BATCH_SIZE) {
+        const batch = items.slice(i, i + BATCH_SIZE);
+        const productList = batch.map((p, idx) =>
+          `${i + idx}: ${p.description}${p.ncm ? ` [NCM: ${p.ncm}]` : ''} - Fornecedor: ${p.supplier}`
+        ).join('\n');
+        const prompt = `Você é um auditor fiscal especializado em panificação. Avalie cada item e recomende se deve ou não ser contado na sistemática de panificação (regra dos 7%).\n\nContar: farinhas de trigo, pré-misturas, semolina, trigo em grão.\nNão contar: itens que não são insumo de panificação.\n\nResponda SOMENTE com JSON array:\n[{"index":0,"shouldCount":true,"confidence":"high","reason":"..."},...]\n\nProdutos:\n${productList}`;
+
+        try {
+          const response = await groqChat({
+            model: 'openai/gpt-oss-120b',
+            messages: [{ role: 'user', content: prompt }],
+            temperature: 0,
+            max_tokens: 4000,
+            reasoning_effort: 'low',
+          });
+          if (!response.ok) {
+            const err = await response.json();
+            throw new Error(err.error?.message || 'Erro Groq');
+          }
+          const data = await response.json();
+          const choice = data.choices[0];
+          const text = (choice.message.content || '').trim();
+          const jsonMatch = text.match(/\[.*\]/s);
+          if (choice.finish_reason === 'length' || !jsonMatch) {
+            throw new Error('Resposta da IA incompleta para este lote.');
+          }
+          results.push(...JSON.parse(jsonMatch[0]));
+        } catch {
+          // Lote específico falhou — não descartar em silêncio, mantém desmarcado para revisão manual
+          algumLoteFalhou = true;
+        }
       }
-      const data = await response.json();
-      const text = data.choices[0].message.content.trim();
-      const jsonMatch = text.match(/\[.*\]/s);
-      if (jsonMatch) {
-        const results: { index: number; shouldCount: boolean; confidence: string }[] = JSON.parse(jsonMatch[0]);
-        setItems(prev => prev.map((it, i) => {
-          const r = results.find(r => r.index === i);
-          return r ? { ...it, selected: r.shouldCount, aiConfidence: r.confidence as any } : it;
-        }));
-        setIaAviso('✓ IA classificou os itens. Revise e confirme.');
-      }
+
+      setItems(prev => prev.map((it, i) => {
+        const r = results.find(r => r.index === i);
+        return r ? { ...it, selected: r.shouldCount, aiConfidence: r.confidence as any } : it;
+      }));
+      setIaAviso(algumLoteFalhou
+        ? '⚠️ A IA não conseguiu classificar todos os itens — os que faltaram continuam desmarcados. Revise manualmente.'
+        : '✓ IA classificou os itens. Revise e confirme.');
     } catch (err) {
       setIaAviso('⚠️ IA indisponível. Tente novamente mais tarde.');
     } finally {

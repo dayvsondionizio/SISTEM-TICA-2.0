@@ -452,6 +452,7 @@ function BakeryPanel({ allProducts, questorTotal, onUpdatePrintData, onPrint, wo
     try {
       const BATCH_SIZE = 50;
       const results: { index: number; shouldCount: boolean; confidence: 'high' | 'medium' | 'low'; reason: string }[] = [];
+      let algumLoteFalhou = false;
 
       for (let i = 0; i < products.length; i += BATCH_SIZE) {
         const batch = products.slice(i, i + BATCH_SIZE);
@@ -461,23 +462,36 @@ function BakeryPanel({ allProducts, questorTotal, onUpdatePrintData, onPrint, wo
 
         const prompt = `Você é um auditor fiscal especializado em panificação. Os produtos abaixo já foram pré-filtrados por NCM (1101.00.10 = farinha de trigo, 1901.20.00 = pré-misturas). Avalie cada item e recomende se deve ou não ser contado na sistemática de panificação para cálculo da regra dos 7%.\n\nRegras:\n- Contar: farinhas de trigo, pré-misturas, semolina, trigo em grão diretamente relacionados à panificação\n- Não contar: itens com NCM incorreto, produtos só de nome similar mas diferentes, ou que claramente não são insumo de panificação\n\nIMPORTANTE: Responda SOMENTE com JSON array sem texto adicional:\n[{"index":0,"shouldCount":true,"confidence":"high","reason":"Farinha de trigo tipo 1"}, ...]\n\nProdutos:\n${productList}`;
 
-        const response = await groqChat({
-          model: 'openai/gpt-oss-120b',
-          messages: [{ role: 'user', content: prompt }],
-          temperature: 0,
-          max_tokens: 2000
-        });
+        try {
+          const response = await groqChat({
+            model: 'openai/gpt-oss-120b',
+            messages: [{ role: 'user', content: prompt }],
+            temperature: 0,
+            max_tokens: 4000,
+            reasoning_effort: 'low'
+          });
 
-        if (!response.ok) {
-          const err = await response.json();
-          throw new Error(err.error?.message || `Erro Groq ${response.status}`);
-        }
+          if (!response.ok) {
+            const err = await response.json();
+            throw new Error(err.error?.message || `Erro Groq ${response.status}`);
+          }
 
-        const data = await response.json();
-        const text = data.choices[0].message.content.trim();
-        const jsonMatch = text.match(/\[.*\]/s);
-        if (jsonMatch) {
+          const data = await response.json();
+          const choice = data.choices[0];
+          const text = (choice.message.content || '').trim();
+          const jsonMatch = text.match(/\[.*\]/s);
+          // finish_reason 'length' = resposta cortada pelo limite de tokens antes de fechar o array
+          if (choice.finish_reason === 'length' || !jsonMatch) {
+            throw new Error('Resposta da IA incompleta para este lote.');
+          }
           results.push(...JSON.parse(jsonMatch[0]));
+        } catch (batchErr) {
+          // Este lote específico falhou — NUNCA descartar os itens em silêncio.
+          // Eles entram desmarcados para revisão manual do analista.
+          algumLoteFalhou = true;
+          batch.forEach((_, idx) => {
+            results.push({ index: i + idx, shouldCount: false, confidence: 'low', reason: 'IA indisponível para este lote — revisar manualmente' });
+          });
         }
       }
 
@@ -496,8 +510,11 @@ function BakeryPanel({ allProducts, questorTotal, onUpdatePrintData, onPrint, wo
       }).filter(Boolean) as BakeryItem[];
 
       setBakeryItems(items);
+      if (algumLoteFalhou) {
+        setAnalysisError('⚠️ A IA não conseguiu classificar um ou mais lotes de itens — eles entraram desmarcados para revisão manual. Confira a lista completa antes de salvar.');
+      }
     } catch (err) {
-      // IA indisponível (rate limit ou erro) → fallback: todos desmarcados para revisão manual
+      // IA totalmente indisponível → fallback: todos desmarcados para revisão manual
       const fallbackItems: BakeryItem[] = products.map(p => ({
         rowIndex: p.rowIndex,
         description: p.description,
@@ -2233,21 +2250,32 @@ NENHUMA PALAVRA OU EXPLICAÇÃO DEVE SER ESCRITA NA RESPOSTA ALÉM DO ARRAY JSON
 
       const prompt = `Você é um auditor fiscal especializado em panificação. Os produtos abaixo já foram pré-filtrados por NCM (1101.00.10 = farinha de trigo, 1901.20.00 = pré-misturas). Avalie cada item e recomende se deve ou não ser contado na sistemática de panificação para cálculo da regra dos 7%.\n\nRegras:\n- Contar: farinhas de trigo, pré-misturas, semolina, trigo em grão diretamente relacionados à panificação\n- Não contar: itens com NCM incorreto, produtos só de nome similar mas diferentes, ou que claramente não são insumo de panificação\n\nIMPORTANTE: Responda SOMENTE com JSON array sem texto adicional:\n[{"index":0,"shouldCount":true,"confidence":"high","reason":"Farinha de trigo tipo 1"}, ...]\n\nProdutos:\n${productList}`;
 
-      const response = await groqChat({
-        model: 'openai/gpt-oss-120b',
-        messages: [{ role: 'user', content: prompt }],
-        temperature: 0, max_tokens: 2000
-      });
+      try {
+        const response = await groqChat({
+          model: 'openai/gpt-oss-120b',
+          messages: [{ role: 'user', content: prompt }],
+          temperature: 0, max_tokens: 4000, reasoning_effort: 'low'
+        });
 
-      if (!response.ok) {
-        const err = await response.json();
-        throw new Error(err.error?.message || `Erro Groq ${response.status}`);
+        if (!response.ok) {
+          const err = await response.json();
+          throw new Error(err.error?.message || `Erro Groq ${response.status}`);
+        }
+
+        const data = await response.json();
+        const choice = data.choices[0];
+        const text = (choice.message.content || '').trim();
+        const jsonMatch = text.match(/\[.*\]/s);
+        if (choice.finish_reason === 'length' || !jsonMatch) {
+          throw new Error('Resposta da IA incompleta para este lote.');
+        }
+        results.push(...JSON.parse(jsonMatch[0]));
+      } catch {
+        // Lote específico falhou — não descartar os itens em silêncio, entram desmarcados p/ revisão manual
+        batch.forEach((_, idx) => {
+          results.push({ index: i + idx, shouldCount: false, confidence: 'low', reason: 'IA indisponível para este lote — revisar manualmente' });
+        });
       }
-
-      const data = await response.json();
-      const text = data.choices[0].message.content.trim();
-      const jsonMatch = text.match(/\[.*\]/s);
-      if (jsonMatch) results.push(...JSON.parse(jsonMatch[0]));
     }
 
     return results.map(r => {
