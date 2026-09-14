@@ -138,7 +138,7 @@ export function EditorRascunho({ rascunho, onFinalizar, onSalvarAlteracoes, onCl
       ).join('\n');
       const prompt = `Você é um auditor fiscal especializado em panificação. Avalie cada item e recomende se deve ou não ser contado na sistemática de panificação (regra dos 7%).\n\nContar: farinhas de trigo, pré-misturas, semolina, trigo em grão.\nNão contar: itens que não são insumo de panificação.\n\nResponda SOMENTE com JSON array:\n[{"index":0,"shouldCount":true,"confidence":"high","reason":"..."},...]\n\nProdutos:\n${productList}`;
       const response = await groqChat({
-        model: 'llama-3.3-70b-versatile',
+        model: 'openai/gpt-oss-120b',
         messages: [{ role: 'user', content: prompt }],
         temperature: 0,
         max_tokens: 2000,
