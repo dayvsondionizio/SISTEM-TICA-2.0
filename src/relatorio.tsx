@@ -430,9 +430,8 @@ export function PrintOverlayMulti({ auditorias, modo, onDone }: PrintOverlayMult
         : `${sorted[0]?.mesReferencia?.replace('/', '-')} a ${fim.replace('/', '-')}`;
     };
 
-    const tipoLabel = modo === 'trigo' ? 'SISTEMATICA PANIFICACAO CONSOLIDADO' : 'IMPACTO TRIBUTARIO CONSOLIDADO COMPRAS FOR SN';
-    const pctSufixo = modo === 'trigo' && totalPctTrigo !== null ? ` - ${totalPctTrigo.toFixed(2).replace('.', ',')}% TRIGO` : '';
-    document.title = `${tipoLabel} - ${empresa} ${getPeriodoLabel()}${pctSufixo}`;
+    const tipoLabel = modo === 'trigo' ? 'SISTEMATICA PANIFICACAO % TRIGO CONSOLIDADO' : 'IMPACTO TRIBUTARIO CONSOLIDADO COMPRAS FOR SN';
+    document.title = `${tipoLabel} - ${empresa} ${getPeriodoLabel()}`;
 
     let t: ReturnType<typeof setTimeout>;
     requestAnimationFrame(() => {
@@ -935,10 +934,9 @@ export function PrintOverlay({ auditoria, modo, onDone, incluirTrigo = true }: P
   useEffect(() => {
     const mes = auditoria.mesReferencia?.replace('/', '-') ?? '';
     const empresa = auditoria.nomeEmpresa ?? '';
-    const tipoLabel = modo === 'trigo' ? 'SISTEMATICA PANIFICACAO' : 'IMPACTO TRIBUTARIO COMPRAS FOR SN';
-    const pctSufixo = modo === 'trigo' && auditoria.percentualSistematica != null ? ` - ${auditoria.percentualSistematica.toFixed(2).replace('.', ',')}% TRIGO` : '';
+    const tipoLabel = modo === 'trigo' ? 'SISTEMATICA PANIFICACAO % TRIGO' : 'IMPACTO TRIBUTARIO COMPRAS FOR SN';
     const originalTitle = document.title;
-    document.title = `${tipoLabel} - ${empresa} ${mes}${pctSufixo}`;
+    document.title = `${tipoLabel} - ${empresa} ${mes}`;
 
     let t: ReturnType<typeof setTimeout>;
     requestAnimationFrame(() => {
