@@ -1,4 +1,5 @@
 import { supabase } from './supabaseClient';
+import type { RankingIcms } from './rankingIcms';
 
 // ─── CLIENTES ─────────────────────────────────────────────────────────────────
 export interface Cliente {
@@ -72,6 +73,7 @@ export interface AuditoriaSalva {
   trigoSelectedTotal?: number | null;
   trigoItens?: TrigoItemSalvo[];
   summaryTable?: SummaryRowSalvo[];
+  rankingIcms?: RankingIcms | null;
 }
 
 function dbToAuditoria(r: any): AuditoriaSalva {
@@ -91,6 +93,7 @@ function dbToAuditoria(r: any): AuditoriaSalva {
     trigoSelectedTotal: r.trigo_selected_total ?? null,
     trigoItens: r.trigo_itens ?? [],
     summaryTable: r.summary_table ?? [],
+    rankingIcms: r.ranking_icms ?? undefined,
   };
 }
 
@@ -111,8 +114,15 @@ function auditoriaToDb(a: AuditoriaSalva) {
     trigo_selected_total: a.trigoSelectedTotal ?? null,
     trigo_itens: a.trigoItens ?? [],
     summary_table: a.summaryTable ?? [],
+    // Só envia a coluna quando há ranking: auditorias antigas e fluxos sem ranking gravam EXATAMENTE o que gravavam antes.
+    ...(a.rankingIcms ? { ranking_icms: a.rankingIcms } : {}),
   };
 }
+
+// Se a coluna ranking_icms ainda não existir no banco, a gravação é refeita sem ela para nunca perder a apuração.
+const faltaColunaRanking = (e: any) =>
+  !!e && (e.code === '42703' || e.code === 'PGRST204' || /ranking_icms/i.test(String(e.message ?? '')));
+const semRanking = (row: Record<string, any>) => { const { ranking_icms: _r, ...resto } = row; return resto; };
 
 export async function carregarHistorico(): Promise<AuditoriaSalva[]> {
   const { data, error } = await supabase
@@ -124,12 +134,22 @@ export async function carregarHistorico(): Promise<AuditoriaSalva[]> {
 }
 
 export async function salvarAuditoria(a: AuditoriaSalva): Promise<void> {
-  const { error } = await supabase.from('icms_auditorias').upsert(auditoriaToDb(a));
+  const row = auditoriaToDb(a);
+  let { error } = await supabase.from('icms_auditorias').upsert(row);
+  if (error && 'ranking_icms' in row && faltaColunaRanking(error)) {
+    console.warn('salvarAuditoria: coluna ranking_icms ainda não existe; salvando sem o ranking');
+    ({ error } = await supabase.from('icms_auditorias').upsert(semRanking(row)));
+  }
   if (error) console.error('salvarAuditoria:', error);
 }
 
 export async function atualizarAuditoria(a: AuditoriaSalva): Promise<void> {
-  const { error } = await supabase.from('icms_auditorias').update(auditoriaToDb(a)).eq('id', a.id);
+  const row = auditoriaToDb(a);
+  let { error } = await supabase.from('icms_auditorias').update(row).eq('id', a.id);
+  if (error && 'ranking_icms' in row && faltaColunaRanking(error)) {
+    console.warn('atualizarAuditoria: coluna ranking_icms ainda não existe; atualizando sem o ranking');
+    ({ error } = await supabase.from('icms_auditorias').update(semRanking(row)).eq('id', a.id));
+  }
   if (error) console.error('atualizarAuditoria:', error);
 }
 
@@ -159,6 +179,7 @@ export interface RascunhoAuditoria {
   summaryTable: SummaryRowSalvo[];
   bakeryItems: BakeryItemSalvo[];
   questorTotal: number | null;
+  rankingIcms?: RankingIcms | null;
 }
 
 function dbToRascunho(r: any): RascunhoAuditoria {
@@ -173,6 +194,7 @@ function dbToRascunho(r: any): RascunhoAuditoria {
     summaryTable: r.summary_table ?? [],
     bakeryItems: r.bakery_items ?? [],
     questorTotal: r.questor_total ?? null,
+    rankingIcms: r.ranking_icms ?? undefined,
   };
 }
 
@@ -188,6 +210,7 @@ function rascunhoToDb(r: RascunhoAuditoria) {
     summary_table: r.summaryTable,
     bakery_items: r.bakeryItems,
     questor_total: r.questorTotal,
+    ...(r.rankingIcms ? { ranking_icms: r.rankingIcms } : {}),
   };
 }
 
@@ -201,7 +224,12 @@ export async function carregarRascunhos(): Promise<RascunhoAuditoria[]> {
 }
 
 export async function salvarRascunho(r: RascunhoAuditoria): Promise<void> {
-  const { error } = await supabase.from('icms_rascunhos').upsert(rascunhoToDb(r));
+  const row = rascunhoToDb(r);
+  let { error } = await supabase.from('icms_rascunhos').upsert(row);
+  if (error && 'ranking_icms' in row && faltaColunaRanking(error)) {
+    console.warn('salvarRascunho: coluna ranking_icms ainda não existe; salvando sem o ranking');
+    ({ error } = await supabase.from('icms_rascunhos').upsert(semRanking(row)));
+  }
   if (error) console.error('salvarRascunho:', error);
 }
 

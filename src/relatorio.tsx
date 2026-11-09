@@ -53,9 +53,10 @@ interface IcmsReportProps {
   fileName: string;
   mes?: string;
   wheatPrintData?: any;
+  ranking?: RankingIcms | null;
 }
 
-export function PrintableIcmsReport({ data, summaryTable, fileName, mes, wheatPrintData }: IcmsReportProps) {
+export function PrintableIcmsReport({ data, summaryTable, fileName, mes, wheatPrintData, ranking }: IcmsReportProps) {
   const companyName = fileName.replace('AUDITORIA_', '').split('.')[0].replace(/_/g, ' ').toUpperCase();
 
   const totalSimples    = round(summaryTable.find(r => r.label.toUpperCase().includes('SIMPLES NACIONAL'))?.icmsAntecipado || 0);
@@ -197,6 +198,9 @@ export function PrintableIcmsReport({ data, summaryTable, fileName, mes, wheatPr
             </p>
           </div>
         </div>
+
+        {/* Página: Ranking do ICMS antecipado por grupo (só quando a apuração guardou o ranking) */}
+        {ranking && <PaginaRankingIcms ranking={ranking} nomeEmpresa={companyName} mes={mes} quebra />}
 
         {/* Página: Encerramento */}
         <div className="min-h-[297mm] bg-[#FCFBF8] p-16 flex flex-col justify-center">
@@ -872,9 +876,10 @@ interface PrintOverlayProps {
   modo: 'icms' | 'trigo';
   onDone: () => void;
   incluirTrigo?: boolean;
+  incluirRanking?: boolean;
 }
 
-export function PrintOverlay({ auditoria, modo, onDone, incluirTrigo = true }: PrintOverlayProps) {
+export function PrintOverlay({ auditoria, modo, onDone, incluirTrigo = true, incluirRanking = false }: PrintOverlayProps) {
   const cnpjEmpresa = useCnpjPorNome(auditoria.nomeEmpresa);
 
   // monta dados de fornecedores ativos → formato SimplesSupplierData
@@ -994,6 +999,7 @@ export function PrintOverlay({ auditoria, modo, onDone, incluirTrigo = true }: P
             fileName={auditoria.nomeEmpresa}
             mes={auditoria.mesReferencia}
             wheatPrintData={wheatForIcms}
+            ranking={incluirRanking ? auditoria.rankingIcms : undefined}
           />
         )}
 
@@ -1016,7 +1022,7 @@ export function PrintOverlay({ auditoria, modo, onDone, incluirTrigo = true }: P
 // ─── PÁGINA: ICMS ANTECIPADO POR GRUPO DE PRODUTOS ───────────────────────────
 const fmtPct1 = (v: number) => `${v.toFixed(1).replace('.', ',')}%`;
 
-export function PrintableRankingIcms({ ranking, nomeEmpresa, mes }: { ranking: RankingIcms; nomeEmpresa: string; mes?: string }) {
+export function PaginaRankingIcms({ ranking, nomeEmpresa, mes, quebra }: { ranking: RankingIcms; nomeEmpresa: string; mes?: string; quebra?: boolean }) {
   const { grupos, totalIcms, totalCompras } = ranking;
   const maxIcms = grupos[0]?.icms || 1;
   const pctTotal = (v: number) => (totalIcms > 0 ? (v / totalIcms) * 100 : 0);
@@ -1027,9 +1033,7 @@ export function PrintableRankingIcms({ ranking, nomeEmpresa, mes }: { ranking: R
   const doisMaiores = grupos.length >= 2 ? pctTotal(grupos[0].icms + grupos[1].icms) : null;
 
   return (
-    <div className="bg-[#EDEAE2] py-12 print:p-0 print:bg-white text-[#17150F] font-report">
-      <div className="max-w-[210mm] mx-auto shadow-2xl print:shadow-none">
-        <div className="min-h-[297mm] print:min-h-[296mm] bg-[#FCFBF8] px-14 py-12">
+        <div className={`min-h-[297mm] print:min-h-[296mm] bg-[#FCFBF8] px-14 py-12${quebra ? ' break-after-page' : ''}`}>
 
           <div className="flex items-start justify-between border-b border-[#17150F] pb-6 mb-7">
             <div>
@@ -1122,6 +1126,14 @@ export function PrintableRankingIcms({ ranking, nomeEmpresa, mes }: { ranking: R
             Os grupos seguem o NCM informado na nota fiscal; a soma de todos os {ranking.totalGrupos} grupos fecha no total acima.
           </p>
         </div>
+  );
+}
+
+export function PrintableRankingIcms({ ranking, nomeEmpresa, mes }: { ranking: RankingIcms; nomeEmpresa: string; mes?: string }) {
+  return (
+    <div className="bg-[#EDEAE2] py-12 print:p-0 print:bg-white text-[#17150F] font-report">
+      <div className="max-w-[210mm] mx-auto shadow-2xl print:shadow-none">
+        <PaginaRankingIcms ranking={ranking} nomeEmpresa={nomeEmpresa} mes={mes} />
       </div>
     </div>
   );

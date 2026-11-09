@@ -3,6 +3,7 @@ import { Trash2, ChevronRight, X, Save, History, Building2, Calendar, CheckCircl
 import * as XLSX from 'xlsx';
 import { SeletorCliente } from './clientes';
 import { PrintOverlay } from './relatorio';
+import { ModalOpcoesPdfIcms } from './opcoesPdf';
 import {
   type AuditoriaSalva,
   type FornecedorSalvo,
@@ -119,6 +120,7 @@ export function DetalheAuditoria({ auditoria, onClose, onUpdate }: DetalheProps)
   const [dados, setDados] = useState<AuditoriaSalva>(JSON.parse(JSON.stringify(auditoria)));
   const [printMode, setPrintMode] = useState<'none' | 'icms' | 'trigo'>('none');
   const [showPdfOpcao, setShowPdfOpcao] = useState(false);
+  const [pdfIcmsComRanking, setPdfIcmsComRanking] = useState<boolean>(false);
   const [pdfIcmsComTrigo, setPdfIcmsComTrigo] = useState<boolean>(true);
   const [editandoNome, setEditandoNome] = useState(false);
   const [novoNome, setNovoNome] = useState(dados.nomeEmpresa);
@@ -178,50 +180,19 @@ export function DetalheAuditoria({ auditoria, onClose, onUpdate }: DetalheProps)
         auditoria={dados}
         modo={printMode}
         incluirTrigo={pdfIcmsComTrigo}
+        incluirRanking={pdfIcmsComRanking}
         onDone={() => setPrintMode('none')}
       />
     )}
 
-    {/* Modal de escolha: com ou sem trigo */}
+    {/* Modal de escolha: o que incluir no PDF ICMS */}
     {showPdfOpcao && (
-      <div className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="bg-sky-500 p-2 rounded-xl">
-                <FileText className="w-4 h-4 text-white" />
-              </div>
-              <h3 className="text-base font-black text-slate-800">PDF ICMS</h3>
-            </div>
-            <button onClick={() => setShowPdfOpcao(false)} className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors">
-              <X className="w-4 h-4 text-slate-400" />
-            </button>
-          </div>
-          <p className="text-sm text-slate-500">Deseja incluir a seção de Sistemática de Trigo no relatório?</p>
-          <div className="flex flex-col gap-2">
-            <button
-              onClick={() => { setPdfIcmsComTrigo(true); setShowPdfOpcao(false); setPrintMode('icms'); }}
-              className="flex items-center gap-3 w-full px-4 py-3 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-xl transition-colors text-left"
-            >
-              <Wheat className="w-4 h-4 text-amber-500 flex-shrink-0" />
-              <div>
-                <p className="text-sm font-bold text-slate-800">Com Sistemática de Trigo</p>
-                <p className="text-xs text-slate-400">Inclui a validação dos 7% e insumos de panificação</p>
-              </div>
-            </button>
-            <button
-              onClick={() => { setPdfIcmsComTrigo(false); setShowPdfOpcao(false); setPrintMode('icms'); }}
-              className="flex items-center gap-3 w-full px-4 py-3 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl transition-colors text-left"
-            >
-              <FileText className="w-4 h-4 text-slate-400 flex-shrink-0" />
-              <div>
-                <p className="text-sm font-bold text-slate-800">Somente ICMS</p>
-                <p className="text-xs text-slate-400">Apenas o impacto tributário dos fornecedores Simples</p>
-              </div>
-            </button>
-          </div>
-        </div>
-      </div>
+      <ModalOpcoesPdfIcms
+        temTrigo={!!(dados.trigoItens && dados.trigoItens.length > 0)}
+        temRanking={!!dados.rankingIcms}
+        onCancelar={() => setShowPdfOpcao(false)}
+        onGerar={(o) => { setPdfIcmsComTrigo(o.trigo); setPdfIcmsComRanking(o.ranking); setShowPdfOpcao(false); setPrintMode('icms'); }}
+      />
     )}
     <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
       <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
@@ -266,10 +237,11 @@ export function DetalheAuditoria({ auditoria, onClose, onUpdate }: DetalheProps)
           <div className="flex items-center gap-2">
             <button
               onClick={() => {
-                if (dados.trigoItens && dados.trigoItens.length > 0) {
+                if ((dados.trigoItens && dados.trigoItens.length > 0) || dados.rankingIcms) {
                   setShowPdfOpcao(true);
                 } else {
                   setPdfIcmsComTrigo(false);
+                  setPdfIcmsComRanking(false);
                   setPrintMode('icms');
                 }
               }}
@@ -374,6 +346,7 @@ export function TelaHistorico({ onClose }: HistoricoProps) {
   const [dropdownId, setDropdownId] = useState<string | null>(null);
   const [printAuditoria, setPrintAuditoria] = useState<AuditoriaSalva | null>(null);
   const [printModo, setPrintModo] = useState<'icms' | 'trigo'>('icms');
+  const [printComRanking, setPrintComRanking] = useState<boolean>(false);
   const [printComTrigo, setPrintComTrigo] = useState<boolean>(true);
   const [showPdfOpcaoCard, setShowPdfOpcaoCard] = useState<AuditoriaSalva | null>(null);
 
@@ -417,48 +390,16 @@ export function TelaHistorico({ onClose }: HistoricoProps) {
   return (
     <>
       {printAuditoria && (
-        <PrintOverlay auditoria={printAuditoria} modo={printModo} incluirTrigo={printComTrigo} onDone={() => setPrintAuditoria(null)} />
+        <PrintOverlay auditoria={printAuditoria} modo={printModo} incluirTrigo={printComTrigo} incluirRanking={printComRanking} onDone={() => setPrintAuditoria(null)} />
       )}
 
       {showPdfOpcaoCard && (
-        <div className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="bg-sky-500 p-2 rounded-xl">
-                  <FileText className="w-4 h-4 text-white" />
-                </div>
-                <h3 className="text-base font-black text-slate-800">PDF ICMS</h3>
-              </div>
-              <button onClick={() => setShowPdfOpcaoCard(null)} className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors">
-                <X className="w-4 h-4 text-slate-400" />
-              </button>
-            </div>
-            <p className="text-sm text-slate-500">Deseja incluir a seção de Sistemática de Trigo no relatório?</p>
-            <div className="flex flex-col gap-2">
-              <button
-                onClick={() => { setPrintComTrigo(true); setPrintModo('icms'); setPrintAuditoria(showPdfOpcaoCard); setShowPdfOpcaoCard(null); }}
-                className="flex items-center gap-3 w-full px-4 py-3 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-xl transition-colors text-left"
-              >
-                <Wheat className="w-4 h-4 text-amber-500 flex-shrink-0" />
-                <div>
-                  <p className="text-sm font-bold text-slate-800">Com Sistemática de Trigo</p>
-                  <p className="text-xs text-slate-400">Inclui a validação dos 7% e insumos de panificação</p>
-                </div>
-              </button>
-              <button
-                onClick={() => { setPrintComTrigo(false); setPrintModo('icms'); setPrintAuditoria(showPdfOpcaoCard); setShowPdfOpcaoCard(null); }}
-                className="flex items-center gap-3 w-full px-4 py-3 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl transition-colors text-left"
-              >
-                <FileText className="w-4 h-4 text-slate-400 flex-shrink-0" />
-                <div>
-                  <p className="text-sm font-bold text-slate-800">Somente ICMS</p>
-                  <p className="text-xs text-slate-400">Apenas o impacto tributário dos fornecedores Simples</p>
-                </div>
-              </button>
-            </div>
-          </div>
-        </div>
+        <ModalOpcoesPdfIcms
+          temTrigo={!!(showPdfOpcaoCard.trigoItens && showPdfOpcaoCard.trigoItens.length > 0)}
+          temRanking={!!showPdfOpcaoCard.rankingIcms}
+          onCancelar={() => setShowPdfOpcaoCard(null)}
+          onGerar={(o) => { setPrintComTrigo(o.trigo); setPrintComRanking(o.ranking); setPrintModo('icms'); setPrintAuditoria(showPdfOpcaoCard); setShowPdfOpcaoCard(null); }}
+        />
       )}
       <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setDropdownId(null)}>
         <div className="bg-white rounded-3xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden">
@@ -543,10 +484,11 @@ export function TelaHistorico({ onClose }: HistoricoProps) {
                                       <button
                                         onClick={() => {
                                           setDropdownId(null);
-                                          if (a.trigoItens && a.trigoItens.length > 0) {
+                                          if ((a.trigoItens && a.trigoItens.length > 0) || a.rankingIcms) {
                                             setShowPdfOpcaoCard(a);
                                           } else {
                                             setPrintComTrigo(false);
+                                            setPrintComRanking(false);
                                             setPrintModo('icms');
                                             setPrintAuditoria(a);
                                           }

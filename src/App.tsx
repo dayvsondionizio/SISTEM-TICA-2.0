@@ -39,6 +39,7 @@ import { ModalSalvar, TelaHistorico, DetalheAuditoria, type AuditoriaSalva, type
 import { TelaPainelGeral } from './painel';
 import { PrintOverlay, PrintOverlayMulti, PrintOverlayRanking } from './relatorio';
 import { calcularRankingIcms, type RankingIcms } from './rankingIcms';
+import { ModalOpcoesPdfIcms } from './opcoesPdf';
 import { salvarAuditoria, carregarClientes, carregarHistorico, excluirAuditoria, salvarRascunho, carregarRascunhos, excluirRascunho, type Cliente, type RascunhoAuditoria, type BakeryItemSalvo } from './storage';
 import { groqChat } from './groqClient';
 import { ModalSalvarRascunho, EditorRascunho, CardRascunho } from './rascunho';
@@ -1039,6 +1040,9 @@ function DashboardCliente({ cliente, onNovaApuracao, onVoltar, onFinalizarRascun
   const [dropdownDownloadId, setDropdownDownloadId] = useState<string | null>(null);
   const [printCardAuditoria, setPrintCardAuditoria] = useState<AuditoriaSalva | null>(null);
   const [printCardModo, setPrintCardModo] = useState<'icms' | 'trigo'>('icms');
+  const [opcoesPdfCard, setOpcoesPdfCard] = useState<AuditoriaSalva | null>(null);
+  const [printCardTrigo, setPrintCardTrigo] = useState<boolean>(true);
+  const [printCardRanking, setPrintCardRanking] = useState<boolean>(false);
   const [modoSelecao, setModoSelecao] = useState(false);
   const [selecionados, setSelecionados] = useState<Set<string>>(new Set());
   const [printMultiList, setPrintMultiList] = useState<AuditoriaSalva[] | null>(null);
@@ -1347,7 +1351,11 @@ function DashboardCliente({ cliente, onNovaApuracao, onVoltar, onFinalizarRascun
                       {dropdownDownloadId === a.id ? (
                         <>
                           <button
-                            onClick={() => { setPrintCardModo('icms'); setPrintCardAuditoria(a); setDropdownDownloadId(null); }}
+                            onClick={() => {
+                              setDropdownDownloadId(null);
+                              if ((a.trigoItens && a.trigoItens.length > 0) || a.rankingIcms) { setOpcoesPdfCard(a); }
+                              else { setPrintCardTrigo(false); setPrintCardRanking(false); setPrintCardModo('icms'); setPrintCardAuditoria(a); }
+                            }}
                             className="flex items-center gap-1 bg-sky-500 hover:bg-sky-600 text-white text-[10px] font-bold px-2.5 py-1.5 rounded-lg transition-colors"
                           >
                             <FileText className="w-3 h-3" />PDF ICMS
@@ -1449,7 +1457,15 @@ function DashboardCliente({ cliente, onNovaApuracao, onVoltar, onFinalizarRascun
       )}
 
       {printCardAuditoria && (
-        <PrintOverlay auditoria={printCardAuditoria} modo={printCardModo} onDone={() => setPrintCardAuditoria(null)} />
+        <PrintOverlay auditoria={printCardAuditoria} modo={printCardModo} incluirTrigo={printCardTrigo} incluirRanking={printCardRanking} onDone={() => setPrintCardAuditoria(null)} />
+      )}
+      {opcoesPdfCard && (
+        <ModalOpcoesPdfIcms
+          temTrigo={!!(opcoesPdfCard.trigoItens && opcoesPdfCard.trigoItens.length > 0)}
+          temRanking={!!opcoesPdfCard.rankingIcms}
+          onCancelar={() => setOpcoesPdfCard(null)}
+          onGerar={(o) => { setPrintCardTrigo(o.trigo); setPrintCardRanking(o.ranking); setPrintCardModo('icms'); setPrintCardAuditoria(opcoesPdfCard); setOpcoesPdfCard(null); }}
+        />
       )}
       {printMultiList && (
         <PrintOverlayMulti auditorias={printMultiList} modo={printMultiModo} onDone={() => setPrintMultiList(null)} />
@@ -1506,6 +1522,7 @@ function DashboardCliente({ cliente, onNovaApuracao, onVoltar, onFinalizarRascun
                 value: i.value,
               })),
               summaryTable: rascunhoFinalizando.summaryTable,
+              rankingIcms: rascunhoFinalizando.rankingIcms ?? undefined,
             };
             salvarAuditoria(auditoria).then(() =>
               excluirRascunho(rascunhoFinalizando.id).then(() => {
@@ -1700,6 +1717,7 @@ export default function App() {
         value: i.value,
       })) ?? [],
       summaryTable: summaryTableEfetiva,
+      rankingIcms: processedData.rankingIcms ?? undefined,
     };
     salvarAuditoria(auditoria).then(() => {
       setSalvando(false);
@@ -2346,6 +2364,7 @@ NENHUMA PALAVRA OU EXPLICAÇÃO DEVE SER ESCRITA NA RESPOSTA ALÉM DO ARRAY JSON
           summaryTable: result.summary.summaryTable ?? [],
           bakeryItems: bakeryClassified,
           questorTotal: entry.questorVal,
+          rankingIcms: result.rankingIcms ?? undefined,
         };
         await salvarRascunho(rascunho);
         done++;
@@ -3111,6 +3130,7 @@ NENHUMA PALAVRA OU EXPLICAÇÃO DEVE SER ESCRITA NA RESPOSTA ALÉM DO ARRAY JSON
               aiConfidence: b.aiConfidence ?? 'low',
             })),
             questorTotal: questorTotal,
+            rankingIcms: processedData.rankingIcms ?? undefined,
           };
           salvarRascunho(rascunho).then(() => setShowModalRascunho(false));
         }}
