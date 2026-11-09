@@ -120,6 +120,9 @@ export function PrintableIcmsReport({ data, summaryTable, fileName, mes, wheatPr
           </div>
         </div>
 
+        {/* Página 3: Ranking do ICMS antecipado por grupo (só quando a apuração guardou o ranking) */}
+        {ranking && <PaginaRankingIcms ranking={ranking} nomeEmpresa={companyName} mes={mes} quebra />}
+
         {/* Página 3+: Tabela */}
         <div className="min-h-[297mm] bg-[#FCFBF8] p-14 break-after-page">
           <h2 className="font-display text-2xl text-[#17150F] mb-6">Fornecedores do Simples Nacional</h2>
@@ -198,9 +201,6 @@ export function PrintableIcmsReport({ data, summaryTable, fileName, mes, wheatPr
             </p>
           </div>
         </div>
-
-        {/* Página: Ranking do ICMS antecipado por grupo (só quando a apuração guardou o ranking) */}
-        {ranking && <PaginaRankingIcms ranking={ranking} nomeEmpresa={companyName} mes={mes} quebra />}
 
         {/* Página: Encerramento */}
         <div className="min-h-[297mm] bg-[#FCFBF8] p-16 flex flex-col justify-center">
@@ -1033,9 +1033,9 @@ export function PaginaRankingIcms({ ranking, nomeEmpresa, mes, quebra }: { ranki
   const doisMaiores = grupos.length >= 2 ? pctTotal(grupos[0].icms + grupos[1].icms) : null;
 
   return (
-        <div className={`min-h-[297mm] print:min-h-[296mm] bg-[#FCFBF8] px-14 py-12${quebra ? ' break-after-page' : ''}`}>
+        <div className={`min-h-[297mm] print:h-[296mm] print:min-h-0 print:overflow-hidden bg-[#FCFBF8] px-14 py-10${quebra ? ' break-after-page' : ''}`}>
 
-          <div className="flex items-start justify-between border-b border-[#17150F] pb-6 mb-7">
+          <div className="flex items-start justify-between border-b border-[#17150F] pb-5 mb-5">
             <div>
               <h1 className="font-display text-[30px] leading-tight">
                 ICMS antecipado por <span className="italic" style={{ color: GOLD }}>grupo de produtos</span>
@@ -1047,7 +1047,7 @@ export function PaginaRankingIcms({ ranking, nomeEmpresa, mes, quebra }: { ranki
             <img src="/logo-black.png" alt="Contador de Padarias" className="h-8 w-auto shrink-0" />
           </div>
 
-          <p className="text-[13px] leading-relaxed text-[#5E594F] mb-6">
+          <p className="text-[13px] leading-relaxed text-[#5E594F] mb-4">
             Os {grupos.length} grupos abaixo concentram <span className="font-semibold text-[#17150F]">{fmtPct1(pctTotal(top10Icms))}</span> do ICMS antecipado das compras do mês,
             de um total de <span className="font-semibold text-[#17150F]">{fmtBRL(totalIcms)}</span>. Os três maiores estão abertos por tipo de produto.
           </p>
@@ -1067,22 +1067,22 @@ export function PaginaRankingIcms({ ranking, nomeEmpresa, mes, quebra }: { ranki
               {grupos.map((g, i) => (
                 <React.Fragment key={g.codigo}>
                   <tr className="border-b border-[#EFEBE3]">
-                    <td className="py-[7px] pr-2 text-center text-[#78736A]">{i + 1}</td>
-                    <td className="py-[7px] pr-3 font-medium">{g.nome}</td>
-                    <td className="py-[7px] pl-3 text-right tabular-nums">{fmtBRL(g.compras)}</td>
-                    <td className="py-[7px] pl-3 text-right tabular-nums font-semibold">{fmtBRL(g.icms)}</td>
-                    <td className="py-[7px] pl-3 text-right tabular-nums">{fmtPct1(pctTotal(g.icms))}</td>
-                    <td className="py-[7px] pl-3">
+                    <td className="py-[5px] pr-2 text-center text-[#78736A]">{i + 1}</td>
+                    <td className="py-[5px] pr-3 font-medium">{g.nome}</td>
+                    <td className="py-[5px] pl-3 text-right tabular-nums">{fmtBRL(g.compras)}</td>
+                    <td className="py-[5px] pl-3 text-right tabular-nums font-semibold">{fmtBRL(g.icms)}</td>
+                    <td className="py-[5px] pl-3 text-right tabular-nums">{fmtPct1(pctTotal(g.icms))}</td>
+                    <td className="py-[5px] pl-3">
                       <div className="h-[5px] w-full bg-[#EFEBE3]"><div className="h-full" style={{ width: `${Math.max(2, (g.icms / maxIcms) * 100)}%`, background: '#C9A227' }} /></div>
                     </td>
                   </tr>
                   {g.subgrupos.map(s => (
                     <tr key={g.codigo + s.codigo} className="border-b border-[#F5F2EB] text-[#78736A]">
                       <td />
-                      <td className="py-[3px] pr-3 pl-4 text-[10px]"><span style={{ color: GOLD }}>›</span>&nbsp;&nbsp;{s.nome}</td>
-                      <td className="py-[3px] pl-3 text-right tabular-nums text-[10px]">{fmtBRL(s.compras)}</td>
-                      <td className="py-[3px] pl-3 text-right tabular-nums text-[10px]">{fmtBRL(s.icms)}</td>
-                      <td className="py-[3px] pl-3 text-right tabular-nums text-[10px]">{fmtPct1(pctTotal(s.icms))}</td>
+                      <td className="py-[2px] pr-3 pl-4 text-[10px]"><span style={{ color: GOLD }}>›</span>&nbsp;&nbsp;{s.nome}</td>
+                      <td className="py-[2px] pl-3 text-right tabular-nums text-[10px]">{fmtBRL(s.compras)}</td>
+                      <td className="py-[2px] pl-3 text-right tabular-nums text-[10px]">{fmtBRL(s.icms)}</td>
+                      <td className="py-[2px] pl-3 text-right tabular-nums text-[10px]">{fmtPct1(pctTotal(s.icms))}</td>
                       <td />
                     </tr>
                   ))}
@@ -1091,26 +1091,26 @@ export function PaginaRankingIcms({ ranking, nomeEmpresa, mes, quebra }: { ranki
               {ranking.demaisQtd > 0 && (
                 <tr className="border-b border-[#EFEBE3]">
                   <td />
-                  <td className="py-[7px] pr-3 text-[#5E594F]">Demais {ranking.demaisQtd} grupos</td>
-                  <td className="py-[7px] pl-3 text-right tabular-nums">{fmtBRL(ranking.demaisCompras)}</td>
-                  <td className="py-[7px] pl-3 text-right tabular-nums">{fmtBRL(ranking.demaisIcms)}</td>
-                  <td className="py-[7px] pl-3 text-right tabular-nums">{fmtPct1(pctTotal(ranking.demaisIcms))}</td>
+                  <td className="py-[5px] pr-3 text-[#5E594F]">Demais {ranking.demaisQtd} grupos</td>
+                  <td className="py-[5px] pl-3 text-right tabular-nums">{fmtBRL(ranking.demaisCompras)}</td>
+                  <td className="py-[5px] pl-3 text-right tabular-nums">{fmtBRL(ranking.demaisIcms)}</td>
+                  <td className="py-[5px] pl-3 text-right tabular-nums">{fmtPct1(pctTotal(ranking.demaisIcms))}</td>
                   <td />
                 </tr>
               )}
               <tr className="border-t-2 border-[#17150F] font-semibold">
                 <td />
-                <td className="py-[9px] pr-3">Total</td>
-                <td className="py-[9px] pl-3 text-right tabular-nums">{fmtBRL(totalCompras)}</td>
-                <td className="py-[9px] pl-3 text-right tabular-nums">{fmtBRL(totalIcms)}</td>
-                <td className="py-[9px] pl-3 text-right tabular-nums">100,0%</td>
+                <td className="py-[7px] pr-3">Total</td>
+                <td className="py-[7px] pl-3 text-right tabular-nums">{fmtBRL(totalCompras)}</td>
+                <td className="py-[7px] pl-3 text-right tabular-nums">{fmtBRL(totalIcms)}</td>
+                <td className="py-[7px] pl-3 text-right tabular-nums">100,0%</td>
                 <td />
               </tr>
             </tbody>
           </table>
 
           {doisMaiores !== null && (
-            <div className="mt-6 bg-[#17150F] text-[#FCFBF8] px-6 py-5 break-inside-avoid">
+            <div className="mt-5 bg-[#17150F] text-[#FCFBF8] px-6 py-4 break-inside-avoid">
               <p className="text-[9px] uppercase tracking-[0.25em] text-[#A29C92] mb-2">Onde está o imposto</p>
               <p className="text-[13px] leading-relaxed">
                 {grupos[0].nome} ({fmtPct1(pctTotal(grupos[0].icms))}) e {grupos[1].nome} ({fmtPct1(pctTotal(grupos[1].icms))}) respondem por {fmtPct1(doisMaiores)} do ICMS antecipado.
@@ -1121,7 +1121,7 @@ export function PaginaRankingIcms({ ranking, nomeEmpresa, mes, quebra }: { ranki
             </div>
           )}
 
-          <p className="mt-4 text-[10px] italic leading-relaxed text-[#A29C92]">
+          <p className="mt-3 text-[10px] italic leading-relaxed text-[#A29C92]">
             Valores da coluna "Valor do ICMS antecipado" da planilha, somando todas as compras do mês (fornecedores do regime Normal e do Simples Nacional).
             Os grupos seguem o NCM informado na nota fiscal; a soma de todos os {ranking.totalGrupos} grupos fecha no total acima.
           </p>

@@ -34,11 +34,39 @@ const NOMES_NCM4: Record<string, string> = {
 };
 
 const NOMES_NCM6: Record<string, string> = {
+  // Queijos
   '040610': 'Queijos frescos (mussarela, requeijão)', '040620': 'Queijos ralados', '040630': 'Queijos processados',
   '040640': 'Queijos azuis', '040690': 'Outros queijos (coalho, reino, prato)',
+  // Vinhos e espumantes
   '220410': 'Espumantes e champagne', '220421': 'Vinhos tintos, brancos e rosés',
+  // Aves
   '020712': 'Aves inteiras congeladas (chester, frango)', '020714': 'Cortes de frango congelados',
   '020725': 'Peru inteiro congelado', '020727': 'Cortes de peru congelados',
+  // Presunto, tender e preparações de carne
+  '160231': 'Peito e presunto de peru', '160232': 'Preparações de frango (defumado, cozido)', '160241': 'Presunto cozido',
+  '160242': 'Copa e paleta suína', '160249': 'Tender, presunto cozido e frios', '160250': 'Preparações de carne bovina',
+  // Chocolates
+  '180610': 'Chocolate em pó', '180620': 'Coberturas e cremes de chocolate', '180631': 'Barras de chocolate recheadas',
+  '180632': 'Chocolate granulado e em barras', '180690': 'Bombons e demais chocolates',
+  // Laticínios
+  '040110': 'Leite desnatado', '040120': 'Leite UHT', '040150': 'Creme de leite',
+  '040221': 'Leite em pó', '040229': 'Creme de leite e leite em pó adoçado', '040299': 'Leite condensado',
+  '040510': 'Manteiga', '040590': 'Manteiga ghee e outras gorduras do leite',
+  // Gorduras
+  '150920': 'Azeite extra virgem', '150990': 'Outros azeites de oliva', '151710': 'Margarina', '151790': 'Gorduras e misturas para panificação',
+  // Castanhas, frutas e conservas
+  '080111': 'Coco ralado', '080131': 'Castanha de caju com casca', '080132': 'Castanha de caju sem casca',
+  '200520': 'Batata chips e palha', '200540': 'Ervilhas', '200570': 'Azeitonas', '200580': 'Milho verde',
+  '200811': 'Amendoim preparado', '200819': 'Castanhas e milho torrado', '200860': 'Cereja em calda', '200870': 'Pêssego em calda',
+  '200891': 'Palmito', '200899': 'Figo e polpas de fruta', '200799': 'Geleias, doces e cocadas',
+  // Sucos e molhos
+  '200912': 'Suco de laranja', '200961': 'Suco de uva', '200971': 'Suco de maçã', '200989': 'Água de coco e outros sucos', '200990': 'Chás e misturas de sucos',
+  '210310': 'Molho shoyu', '210320': 'Ketchup e molhos de tomate', '210330': 'Mostarda', '210390': 'Molhos diversos e maionese',
+  // Misturas e biscoitos
+  '190110': 'Leite em pó especial e cremes', '190120': 'Misturas para panificação (panetone, pão)', '190190': 'Doce de leite e sobremesas lácteas',
+  '190531': 'Biscoitos doces', '190590': 'Salgadinhos e snacks',
+  // Frutos do mar
+  '030617': 'Camarões congelados',
 };
 
 const semAcento = (s: unknown) => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').trim().toUpperCase();
