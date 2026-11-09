@@ -37,7 +37,8 @@ import {
 } from 'lucide-react';
 import { ModalSalvar, TelaHistorico, DetalheAuditoria, type AuditoriaSalva, type FornecedorSalvo } from './historico';
 import { TelaPainelGeral } from './painel';
-import { PrintOverlay, PrintOverlayMulti } from './relatorio';
+import { PrintOverlay, PrintOverlayMulti, PrintOverlayRanking } from './relatorio';
+import { calcularRankingIcms, type RankingIcms } from './rankingIcms';
 import { salvarAuditoria, carregarClientes, carregarHistorico, excluirAuditoria, salvarRascunho, carregarRascunhos, excluirRascunho, type Cliente, type RascunhoAuditoria, type BakeryItemSalvo } from './storage';
 import { groqChat } from './groqClient';
 import { ModalSalvarRascunho, EditorRascunho, CardRascunho } from './rascunho';
@@ -93,6 +94,7 @@ interface ProcessedData {
   summary: AuditSummary;
   fileName: string;
   allProducts?: { description: string; supplier: string; value: number; ncm?: string; rowIndex: number }[];
+  rankingIcms?: RankingIcms | null;
 }
 
 function PrintableReport({ data, summaryTable, fileName, mes, isFullReport = false, wheatPrintData }: { data: SimplesSupplierData[], summaryTable: SummaryRow[], fileName: string, mes?: string, isFullReport?: boolean, wheatPrintData?: any }) {
@@ -1532,6 +1534,7 @@ export default function App() {
   const [isDraggingQuestor, setIsDraggingQuestor] = useState(false);
   const [processedData, setProcessedData] = useState<ProcessedData | null>(null);
   const [printMode, setPrintMode] = useState<'none' | 'icms' | 'wheat'>('none');
+  const [showRanking, setShowRanking] = useState(false);
   const [wheatPrintData, setWheatPrintData] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -1908,6 +1911,9 @@ NENHUMA PALAVRA OU EXPLICAÇÃO DEVE SER ESCRITA NA RESPOSTA ALÉM DO ARRAY JSON
           const bcSistematicaAliqIdx = findCol('BC SISTEMATICA * ALIQ INTERN');
           const valorIcmsAntecipadoIdx = findCol('VALOR DO ICMS ANTECIPADO');
 
+          // Ranking do ICMS antecipado por grupo (NCM): usa os valores ORIGINAIS da planilha, antes do recálculo do Simples
+          const rankingIcms = calcularRankingIcms(jsonData);
+
           if (tipoFornecedorIdx === -1 || valorTotalIdx === -1 || valorIcmsIdx === -1) {
             throw new Error('Colunas obrigatórias ("Tipo Fornecedor", "Valor Total", "Valor ICMS") não encontradas.');
           }
@@ -2187,6 +2193,7 @@ NENHUMA PALAVRA OU EXPLICAÇÃO DEVE SER ESCRITA NA RESPOSTA ALÉM DO ARRAY JSON
               summaryTable: finalSummaryTable
             },
             fileName: `AUDITORIA_${file.name}`,
+            rankingIcms,
             filteredWorkbook: filteredWorkbook,
             allProducts
           });
@@ -3015,6 +3022,16 @@ NENHUMA PALAVRA OU EXPLICAÇÃO DEVE SER ESCRITA NA RESPOSTA ALÉM DO ARRAY JSON
       <div className="mt-20 print:mt-0 print:block">
         <div className="max-w-5xl mx-auto px-6 mb-8 flex items-center justify-between print:hidden">
           <h2 className="text-2xl font-black text-[#001F3F] uppercase tracking-tight">Prévia do Relatório Oficial</h2>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setShowRanking(true)}
+              disabled={!processedData.rankingIcms}
+              title={processedData.rankingIcms ? 'Gera a página de ICMS antecipado por grupo de produtos (não é salva no histórico)' : 'A planilha não tem as colunas de NCM e ICMS antecipado necessárias'}
+              className="bg-white border-2 border-[#001F3F] text-[#001F3F] hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed px-6 py-3 rounded-xl flex items-center gap-2 transition-all"
+            >
+              <BarChart2 className="w-5 h-5" />
+              <span className="font-bold uppercase tracking-widest text-[10px]">PDF Ranking ICMS</span>
+            </button>
             <button 
               onClick={() => {
                 setPrintMode('icms');
@@ -3025,9 +3042,10 @@ NENHUMA PALAVRA OU EXPLICAÇÃO DEVE SER ESCRITA NA RESPOSTA ALÉM DO ARRAY JSON
               }}
               className="bg-[#001F3F] hover:bg-[#002d5c] text-white px-6 py-3 rounded-xl flex items-center gap-2 transition-all shadow-lg"
             >
-            <Printer className="w-5 h-5" />
-            <span className="font-bold uppercase tracking-widest text-[10px]">Imprimir Agora</span>
-          </button>
+              <Printer className="w-5 h-5" />
+              <span className="font-bold uppercase tracking-widest text-[10px]">Imprimir Agora</span>
+            </button>
+          </div>
         </div>
         <div className={printMode === 'wheat' ? 'hidden' : 'block'}>
           <PrintableReport
@@ -3040,6 +3058,15 @@ NENHUMA PALAVRA OU EXPLICAÇÃO DEVE SER ESCRITA NA RESPOSTA ALÉM DO ARRAY JSON
           />
         </div>
       </div>
+    )}
+
+    {showRanking && processedData?.rankingIcms && (
+      <PrintOverlayRanking
+        ranking={processedData.rankingIcms}
+        nomeEmpresa={clienteAtivo?.nome ?? ''}
+        mes={mesAnalise}
+        onDone={() => setShowRanking(false)}
+      />
     )}
 
     {/* Modal Salvar */}
