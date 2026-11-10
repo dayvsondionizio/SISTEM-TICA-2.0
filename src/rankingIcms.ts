@@ -96,6 +96,16 @@ const NOMES_NCM6: Record<string, string> = {
   '030617': 'Camarões congelados',
 };
 
+/** Nome do grupo pelo código do NCM, sempre com a lista atual. `gravado` é o nome que estava salvo na apuração (usado só se o código não tiver nome). */
+export function nomeGrupoNcm4(codigo: string, gravado: string): string {
+  if (codigo === 'SEM') return gravado;
+  return NOMES_NCM4_TODOS[codigo] ?? gravado;
+}
+export function nomeSubgrupoNcm6(codigo: string, gravado: string): string {
+  if (codigo === 'DEMAIS') return gravado;
+  return NOMES_NCM6[codigo] ?? gravado;
+}
+
 const semAcento = (s: unknown) => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').trim().toUpperCase();
 const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
 const fmtNcm6 = (c: string) => (c.length >= 6 ? `${c.slice(0, 4)}.${c.slice(4, 6)}` : c);

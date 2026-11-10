@@ -1043,6 +1043,7 @@ function DashboardCliente({ cliente, onNovaApuracao, onVoltar, onFinalizarRascun
   const [opcoesPdfCard, setOpcoesPdfCard] = useState<AuditoriaSalva | null>(null);
   const [printCardTrigo, setPrintCardTrigo] = useState<boolean>(true);
   const [printCardRanking, setPrintCardRanking] = useState<boolean>(false);
+  const [printRankingAuditoria, setPrintRankingAuditoria] = useState<AuditoriaSalva | null>(null);
   const [modoSelecao, setModoSelecao] = useState(false);
   const [selecionados, setSelecionados] = useState<Set<string>>(new Set());
   const [printMultiList, setPrintMultiList] = useState<AuditoriaSalva[] | null>(null);
@@ -1368,6 +1369,14 @@ function DashboardCliente({ cliente, onNovaApuracao, onVoltar, onFinalizarRascun
                               <Wheat className="w-3 h-3" />PDF Trigo
                             </button>
                           )}
+                          {a.rankingIcms && (
+                            <button
+                              onClick={() => { setPrintRankingAuditoria(a); setDropdownDownloadId(null); }}
+                              className="flex items-center gap-1 bg-[#17150F] hover:bg-[#2a2720] text-white text-[10px] font-bold px-2.5 py-1.5 rounded-lg transition-colors"
+                            >
+                              <BarChart2 className="w-3 h-3" />PDF Ranking
+                            </button>
+                          )}
                           <button
                             onClick={() => { downloadExcel(a); setDropdownDownloadId(null); }}
                             className="flex items-center gap-1 bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] font-bold px-2.5 py-1.5 rounded-lg transition-colors"
@@ -1465,6 +1474,14 @@ function DashboardCliente({ cliente, onNovaApuracao, onVoltar, onFinalizarRascun
           temRanking={!!opcoesPdfCard.rankingIcms}
           onCancelar={() => setOpcoesPdfCard(null)}
           onGerar={(o) => { setPrintCardTrigo(o.trigo); setPrintCardRanking(o.ranking); setPrintCardModo('icms'); setPrintCardAuditoria(opcoesPdfCard); setOpcoesPdfCard(null); }}
+        />
+      )}
+      {printRankingAuditoria?.rankingIcms && (
+        <PrintOverlayRanking
+          ranking={printRankingAuditoria.rankingIcms}
+          nomeEmpresa={printRankingAuditoria.nomeEmpresa}
+          mes={printRankingAuditoria.mesReferencia}
+          onDone={() => setPrintRankingAuditoria(null)}
         />
       )}
       {printMultiList && (

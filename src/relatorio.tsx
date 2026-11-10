@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { carregarClientes, type AuditoriaSalva, type SummaryRowSalvo } from './storage';
-import type { RankingIcms } from './rankingIcms';
+import { nomeGrupoNcm4, nomeSubgrupoNcm6, type RankingIcms } from './rankingIcms';
 
 function useCnpjPorNome(nomeEmpresa: string | undefined): string | undefined {
   const [cnpj, setCnpj] = useState<string | undefined>(undefined);
@@ -1023,7 +1023,13 @@ export function PrintOverlay({ auditoria, modo, onDone, incluirTrigo = true, inc
 const fmtPct1 = (v: number) => `${v.toFixed(1).replace('.', ',')}%`;
 
 export function PaginaRankingIcms({ ranking, nomeEmpresa, mes, quebra }: { ranking: RankingIcms; nomeEmpresa: string; mes?: string; quebra?: boolean }) {
-  const { grupos, totalIcms, totalCompras } = ranking;
+  const { totalIcms, totalCompras } = ranking;
+  // Os nomes são resolvidos agora, pelo código do NCM: apurações salvas antes de um nome existir também ganham o nome novo.
+  const grupos = ranking.grupos.map(g => ({
+    ...g,
+    nome: nomeGrupoNcm4(g.codigo, g.nome),
+    subgrupos: g.subgrupos.map(s => ({ ...s, nome: nomeSubgrupoNcm6(s.codigo, s.nome) })),
+  }));
   const maxIcms = grupos[0]?.icms || 1;
   const pctTotal = (v: number) => (totalIcms > 0 ? (v / totalIcms) * 100 : 0);
   const top10Icms = grupos.reduce((a, g) => a + g.icms, 0);

@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { Trash2, ChevronRight, X, Save, History, Building2, Calendar, CheckCircle2, XCircle, Edit3, Download, FileText, Wheat, RotateCcw, EyeOff } from 'lucide-react';
+import { Trash2, ChevronRight, X, Save, History, Building2, Calendar, CheckCircle2, XCircle, Edit3, Download, FileText, Wheat, RotateCcw, EyeOff, BarChart2 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { SeletorCliente } from './clientes';
-import { PrintOverlay } from './relatorio';
+import { PrintOverlay, PrintOverlayRanking } from './relatorio';
 import { ModalOpcoesPdfIcms } from './opcoesPdf';
 import {
   type AuditoriaSalva,
@@ -121,6 +121,7 @@ export function DetalheAuditoria({ auditoria, onClose, onUpdate }: DetalheProps)
   const [printMode, setPrintMode] = useState<'none' | 'icms' | 'trigo'>('none');
   const [showPdfOpcao, setShowPdfOpcao] = useState(false);
   const [pdfIcmsComRanking, setPdfIcmsComRanking] = useState<boolean>(false);
+  const [printRanking, setPrintRanking] = useState(false);
   const [pdfIcmsComTrigo, setPdfIcmsComTrigo] = useState<boolean>(true);
   const [editandoNome, setEditandoNome] = useState(false);
   const [novoNome, setNovoNome] = useState(dados.nomeEmpresa);
@@ -175,6 +176,14 @@ export function DetalheAuditoria({ auditoria, onClose, onUpdate }: DetalheProps)
 
   return (
     <>
+    {printRanking && dados.rankingIcms && (
+      <PrintOverlayRanking
+        ranking={dados.rankingIcms}
+        nomeEmpresa={dados.nomeEmpresa}
+        mes={dados.mesReferencia}
+        onDone={() => setPrintRanking(false)}
+      />
+    )}
     {printMode !== 'none' && (
       <PrintOverlay
         auditoria={dados}
@@ -259,6 +268,16 @@ export function DetalheAuditoria({ auditoria, onClose, onUpdate }: DetalheProps)
               >
                 <Wheat className="w-4 h-4" />
                 PDF Trigo
+              </button>
+            )}
+            {dados.rankingIcms && (
+              <button
+                onClick={() => setPrintRanking(true)}
+                title="Ranking do ICMS antecipado por grupo de produtos (página avulsa)"
+                className="flex items-center gap-2 bg-[#17150F] hover:bg-[#2a2720] text-white text-xs font-bold px-4 py-2 rounded-xl transition-colors"
+              >
+                <BarChart2 className="w-4 h-4" />
+                PDF Ranking
               </button>
             )}
             <button
@@ -347,6 +366,7 @@ export function TelaHistorico({ onClose }: HistoricoProps) {
   const [printAuditoria, setPrintAuditoria] = useState<AuditoriaSalva | null>(null);
   const [printModo, setPrintModo] = useState<'icms' | 'trigo'>('icms');
   const [printComRanking, setPrintComRanking] = useState<boolean>(false);
+  const [printRankingCard, setPrintRankingCard] = useState<AuditoriaSalva | null>(null);
   const [printComTrigo, setPrintComTrigo] = useState<boolean>(true);
   const [showPdfOpcaoCard, setShowPdfOpcaoCard] = useState<AuditoriaSalva | null>(null);
 
@@ -389,6 +409,14 @@ export function TelaHistorico({ onClose }: HistoricoProps) {
 
   return (
     <>
+      {printRankingCard?.rankingIcms && (
+        <PrintOverlayRanking
+          ranking={printRankingCard.rankingIcms}
+          nomeEmpresa={printRankingCard.nomeEmpresa}
+          mes={printRankingCard.mesReferencia}
+          onDone={() => setPrintRankingCard(null)}
+        />
+      )}
       {printAuditoria && (
         <PrintOverlay auditoria={printAuditoria} modo={printModo} incluirTrigo={printComTrigo} incluirRanking={printComRanking} onDone={() => setPrintAuditoria(null)} />
       )}
@@ -503,6 +531,14 @@ export function TelaHistorico({ onClose }: HistoricoProps) {
                                           className="w-full flex items-center gap-2 px-4 py-3 text-xs font-bold text-slate-700 hover:bg-amber-50 hover:text-amber-700 transition-colors border-t border-slate-100"
                                         >
                                           <Wheat className="w-3.5 h-3.5 text-amber-500" />PDF Trigo
+                                        </button>
+                                      )}
+                                      {a.rankingIcms && (
+                                        <button
+                                          onClick={() => { setPrintRankingCard(a); setDropdownId(null); }}
+                                          className="w-full flex items-center gap-2 px-4 py-3 text-xs font-bold text-slate-700 hover:bg-slate-100 transition-colors border-t border-slate-100"
+                                        >
+                                          <BarChart2 className="w-3.5 h-3.5 text-slate-500" />PDF Ranking
                                         </button>
                                       )}
                                       <button
