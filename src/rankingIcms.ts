@@ -33,6 +33,31 @@ const NOMES_NCM4: Record<string, string> = {
   '0710': 'Hortaliças congeladas', '0811': 'Frutas congeladas', '3302': 'Essências aromatizantes', '1211': 'Plantas para chá', '0902': 'Chá',
 };
 
+// Cobertura mais ampla (capítulos de alimentos, bebidas e embalagens do Sistema Harmonizado). Os nomes acima têm prioridade.
+const NOMES_NCM4_EXTRA: Record<string, string> = {
+  '0201': 'Carne bovina fresca ou refrigerada', '0202': 'Carne bovina congelada', '0203': 'Carne suína', '0204': 'Carne ovina e caprina',
+  '0206': 'Miúdos comestíveis', '0208': 'Outras carnes e miúdos', '0209': 'Toucinho e gordura de porco',
+  '0302': 'Peixes frescos ou refrigerados', '0303': 'Peixes congelados', '0304': 'Filés e outras carnes de peixe', '0305': 'Peixes secos, salgados ou defumados',
+  '0307': 'Moluscos (lula, polvo, mexilhão)', '0404': 'Soro de leite', '0407': 'Ovos com casca', '0408': 'Ovos sem casca e gemas',
+  '0701': 'Batatas', '0702': 'Tomates', '0703': 'Cebolas e alhos', '0704': 'Couves e repolhos', '0705': 'Alface e chicória', '0706': 'Cenouras e beterrabas',
+  '0707': 'Pepinos', '0709': 'Outros legumes frescos', '0711': 'Hortaliças conservadas provisoriamente', '0712': 'Hortaliças secas', '0713': 'Feijão, grão-de-bico e lentilha',
+  '0803': 'Bananas', '0805': 'Frutas cítricas', '0807': 'Melões e melancias', '0808': 'Maçãs e peras', '0809': 'Pêssegos, cerejas e ameixas', '0810': 'Outras frutas frescas',
+  '0814': 'Casca de cítricos',
+  '0903': 'Erva-mate', '0904': 'Pimenta', '0905': 'Baunilha', '0906': 'Canela', '0907': 'Cravo-da-índia', '0908': 'Noz-moscada', '0909': 'Sementes de especiarias', '0910': 'Gengibre, açafrão e outras especiarias',
+  '1001': 'Trigo', '1008': 'Outros cereais',
+  '1101': 'Farinha de trigo', '1102': 'Farinhas de outros cereais', '1103': 'Sêmolas e grumos', '1106': 'Farinhas de leguminosas', '1107': 'Malte', '1109': 'Glúten de trigo',
+  '1201': 'Soja', '1202': 'Amendoim', '1204': 'Linhaça',
+  '1508': 'Óleo de amendoim', '1510': 'Outros óleos de oliva', '1513': 'Óleo de coco', '1514': 'Óleo de colza', '1516': 'Gorduras e óleos hidrogenados',
+  '1603': 'Extratos de carne e peixe', '1605': 'Crustáceos e moluscos preparados',
+  '1703': 'Melaços', '1801': 'Cacau em grão', '1802': 'Casca de cacau', '1803': 'Pasta de cacau', '1804': 'Manteiga de cacau', '1805': 'Cacau em pó',
+  '2105': 'Sorvetes', '2201': 'Águas minerais', '2203': 'Cervejas', '2205': 'Vermute', '2207': 'Álcool etílico', '2208': 'Destilados e licores',
+  '2402': 'Cigarros', '3401': 'Sabões', '3402': 'Detergentes e produtos de limpeza', '3808': 'Desinfetantes',
+  '3923': 'Embalagens de plástico', '3924': 'Utensílios de plástico', '3926': 'Outras obras de plástico',
+  '4818': 'Papel higiênico e guardanapos', '4819': 'Embalagens de papel e papelão', '4821': 'Etiquetas de papel', '4823': 'Outros papéis (formas, filtros)',
+  '7323': 'Utensílios de ferro e aço', '7607': 'Folhas de alumínio', '7615': 'Utensílios de alumínio', '9603': 'Vassouras e escovas',
+};
+const NOMES_NCM4_TODOS: Record<string, string> = { ...NOMES_NCM4_EXTRA, ...NOMES_NCM4 };
+
 const NOMES_NCM6: Record<string, string> = {
   // Queijos
   '040610': 'Queijos frescos (mussarela, requeijão)', '040620': 'Queijos ralados', '040630': 'Queijos processados',
@@ -65,6 +90,8 @@ const NOMES_NCM6: Record<string, string> = {
   // Misturas e biscoitos
   '190110': 'Leite em pó especial e cremes', '190120': 'Misturas para panificação (panetone, pão)', '190190': 'Doce de leite e sobremesas lácteas',
   '190531': 'Biscoitos doces', '190590': 'Salgadinhos e snacks',
+  // Bebidas não alcoólicas
+  '220210': 'Refrigerantes e águas adoçadas', '220291': 'Cerveja sem álcool', '220299': 'Bebidas lácteas, de aveia e outras não alcoólicas',
   // Frutos do mar
   '030617': 'Camarões congelados',
 };
@@ -132,7 +159,7 @@ export function calcularRankingIcms(rows: any[][]): RankingIcms | null {
         }];
       } else subgrupos = subs;
     }
-    return { codigo, nome: codigo === 'SEM' ? 'Sem NCM informado' : (NOMES_NCM4[codigo] ?? `NCM ${codigo}`), compras: round2(g.compras), icms: round2(g.icms), subgrupos };
+    return { codigo, nome: codigo === 'SEM' ? 'Sem NCM informado' : (NOMES_NCM4_TODOS[codigo] ?? `NCM ${codigo}`), compras: round2(g.compras), icms: round2(g.icms), subgrupos };
   });
   const resto = ordenados.slice(10);
   return {
