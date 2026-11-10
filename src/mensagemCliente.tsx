@@ -44,10 +44,11 @@ function trigoAcumulado(auds: AuditoriaSalva[]) {
 const mesesRestantes = (m: number) => { const fim = m <= 6 ? 6 : 12; return Array.from({ length: fim - m }, (_, i) => MESES[m + i]); };
 
 // ─── blocos ──────────────────────────────────────────────────────────────────
-function blocoEconomia(t: ReturnType<typeof totaisIcms>, consolidado = false) {
+function blocoEconomia(t: ReturnType<typeof totaisIcms>) {
   if (t.itens === 0) return '';
-  return `📌 *Economia possível: ${brl(t.economia)}*
-Produtos tributados comprados de fornecedores do Simples Nacional pagam até *25,5% de ICMS*. Comprando o mesmo produto de um fornecedor do Regime Normal, a carga cai para *5,5%*. ${consolidado ? 'No período' : 'No mês'}, esses itens geraram ${brl(t.pago)} de ICMS, quando poderiam ter gerado ${brl(t.projetado)}. O relatório lista os ${t.itens} itens (fornecedor e produto) em que isso aconteceu.`;
+  const itens = t.itens === 1 ? '1 item foi comprado' : `${t.itens} itens foram comprados`;
+  return `*Economia possível: ${brl(t.economia)}*
+${itens} de fornecedores do Simples Nacional, que pagam até 25,5% de ICMS. O mesmo produto comprado de um fornecedor do Regime Normal paga 5,5%: quase *5 vezes menos*. ${t.itens === 1 ? 'Esse item gerou' : 'Esses itens geraram'} ${brl(t.pago)} de ICMS, quando ${t.itens === 1 ? 'poderia' : 'poderiam'} ter gerado ${brl(t.projetado)}.`;
 }
 function blocoRanking(a: AuditoriaSalva) {
   const r = a.rankingIcms;
@@ -55,7 +56,7 @@ function blocoRanking(a: AuditoriaSalva) {
   const g1 = nomeGrupoNcm4(r.grupos[0].codigo, r.grupos[0].nome);
   const g2 = nomeGrupoNcm4(r.grupos[1].codigo, r.grupos[1].nome);
   const p = ((r.grupos[0].icms + r.grupos[1].icms) / r.totalIcms) * 100;
-  return `📊 *Onde está o seu imposto*
+  return `*Onde está o seu imposto*
 Agrupando os produtos pela classificação fiscal (NCM) das notas, *${g1}* e *${g2}* respondem por *${pct1(p)}* de todo o ICMS antecipado do mês (${brl(r.totalIcms)}). O ranking completo está no relatório.`;
 }
 /** Trigo do relatório mensal. Abaixo da meta, usa o acumulado do semestre (meses já salvos) para mostrar como compensar. */
@@ -63,8 +64,8 @@ function blocoTrigoMensal(a: AuditoriaSalva, historico: AuditoriaSalva[]) {
   const p = a.percentualSistematica;
   if (p === null || p === undefined) return '';
   const { m, y } = mesAno(a.mesReferencia);
-  if (p >= META) return `🌾 *Sistemática do trigo: ${pct(p)}*
-Em ${MESES[m - 1] ?? 'no mês'}, as compras de farinha e pré-misturas ficaram dentro da meta de 7%. 👏`;
+  if (p >= META) return `*Sistemática do trigo: ${pct(p)}*
+Em ${MESES[m - 1] ?? 'no mês'}, as compras de farinha e pré-misturas ficaram dentro da meta de 7%.`;
 
   const ini = m <= 6 ? 1 : 7;
   // um registro por mês do semestre, do início até este mês (a apuração atual prevalece; senão a mais recente)
@@ -76,7 +77,7 @@ Em ${MESES[m - 1] ?? 'no mês'}, as compras de farinha e pré-misturas ficaram d
   const acum = trigoAcumulado([...porMes.values()]);
   const restantes = mesesRestantes(m);
   const linhaMes = `Em ${MESES[m - 1]}, as compras de farinha e pré-misturas ficaram em ${pct(p)}, ${abaixo(p)}.`;
-  const titulo = `🌾 *Sistemática do trigo: ${pct(p)} no mês*`;
+  const titulo = `*Sistemática do trigo: ${pct(p)} no mês*`;
 
   if (acum.meses <= 1 || acum.pct === null) {
     const falta = Math.max(0, (a.trigoQuestorTotal ?? 0) * META / 100 - (a.trigoSelectedTotal ?? 0));
@@ -85,7 +86,7 @@ ${linhaMes} Isso pode ser compensado nos próximos meses: faltaram cerca de *${a
   }
   const periodo = `${MESES[ini - 1]} a ${MESES[m - 1]}`;
   if (acum.pct >= META) return `${titulo}
-${linhaMes} Mas no acumulado do semestre (${periodo}) o trigo está em *${pct(acum.pct)}*, dentro da meta. 👏`;
+${linhaMes} Mas no acumulado do semestre (${periodo}) o trigo está em *${pct(acum.pct)}*, dentro da meta.`;
   if (restantes.length === 0) return `${titulo}
 ${linhaMes} Este mês fecha o semestre, com acumulado de ${pct(acum.pct)} (${periodo}). Vamos conversar sobre os próximos passos.`;
   return `${titulo}
@@ -98,9 +99,9 @@ function blocoTrigoPeriodo(auds: AuditoriaSalva[]) {
   const ord = ordenar(auds);
   const ultimo = mesAno(ord[ord.length - 1].mesReferencia);
   const periodo = `${MESES[mesAno(ord[0].mesReferencia).m - 1]} a ${MESES[ultimo.m - 1]}`;
-  const titulo = `🌾 *Sistemática do trigo: ${pct(acum.pct)} no período*`;
+  const titulo = `*Sistemática do trigo: ${pct(acum.pct)} no período*`;
   if (acum.pct >= META) return `${titulo}
-De ${periodo}, as compras de farinha e pré-misturas ficaram dentro da meta de 7%. 👏`;
+De ${periodo}, as compras de farinha e pré-misturas ficaram dentro da meta de 7%.`;
   const restantes = mesesRestantes(ultimo.m);
   if (restantes.length === 0) return `${titulo}
 De ${periodo}, as compras de farinha e pré-misturas ficaram em ${pct(acum.pct)}, abaixo da meta de 7%. Vamos conversar sobre os próximos passos.`;
@@ -113,31 +114,43 @@ const TITULOS: Record<TipoMensagem, string> = {
   completo: 'IMPACTO TRIBUTÁRIO NAS COMPRAS', icms: 'IMPACTO TRIBUTÁRIO NAS COMPRAS',
   trigo: 'SISTEMÁTICA DE PANIFICAÇÃO – % TRIGO', ranking: 'ICMS POR GRUPO DE PRODUTOS',
 };
-function abertura(tipo: TipoMensagem, empresa: string, quando: string, consolidado: boolean) {
+function abertura(tipo: TipoMensagem, empresa: string, quando: string, consolidado: boolean, economia: number) {
   const ola = `Olá! Aqui é ${ASSINATURA}, do Contador de Padarias.`;
-  const analise = consolidado ? 'a análise consolidada das compras' : 'a análise das compras';
-  if (tipo === 'trigo') return `${ola}\n\nSegue o acompanhamento da sistemática de panificação da ${empresa} ${consolidado ? 'de' : 'em'} ${quando}, com o percentual de compras de farinha e pré-misturas.`;
-  if (tipo === 'ranking') return `${ola}\n\nSegue o ranking dos grupos de produtos que mais geraram ICMS nas compras da ${empresa} em ${quando}.`;
-  return `${ola}\n\nPreparamos ${analise} da ${empresa} ${consolidado ? 'de' : 'em'} ${quando}. Nela aparece onde o imposto está pesando e onde dá para economizar.`;
+  if (tipo === 'trigo') return `${ola}
+
+Segue o acompanhamento da sistemática de panificação da ${empresa} ${consolidado ? 'de' : 'em'} ${quando}, com o percentual de compras de farinha e pré-misturas.`;
+  if (tipo === 'ranking') return `${ola}
+
+Segue o ranking dos grupos de produtos que mais geraram ICMS nas compras da ${empresa} em ${quando}.`;
+  // Com economia, o valor vem logo na abertura: é o que o cliente lê na prévia do WhatsApp.
+  if (economia > 0) {
+    const anexo = tipo === 'completo' ? 'Os relatórios em anexo mostram onde.' : 'O relatório em anexo mostra onde.';
+    return `${ola}
+
+${consolidado ? 'De' : 'Em'} ${quando}, *${brl(economia)} de ICMS* poderiam ter ficado no caixa da ${empresa}. ${anexo}`;
+  }
+  return `${ola}
+
+Preparamos ${consolidado ? 'a análise consolidada das compras' : 'a análise das compras'} da ${empresa} ${consolidado ? 'de' : 'em'} ${quando}. Nela aparece onde o imposto está pesando e onde dá para economizar.`;
 }
-function fechar(partes: string[], blocos: number) {
-  const anexo = blocos > 1 ? 'Os relatórios seguem em anexo.' : 'O relatório segue em anexo.';
-  return [...partes, `${anexo} Qualquer dúvida, estamos à disposição!`].join('\n\n');
+function fechar(partes: string[], blocos: number, empresa: string) {
+  const anexo = blocos > 1 ? 'dos relatórios em anexo' : 'do relatório em anexo';
+  return [...partes, `Estamos juntos no crescimento da ${empresa}. Se quiser aprofundar algum ponto ${anexo}, é só chamar.`].join('\n\n');
 }
 
 export function montarMensagemMensal(a: AuditoriaSalva, historico: AuditoriaSalva[], tipo: TipoMensagem = 'completo') {
   const quando = nomeMes(a.mesReferencia);
   const eco = blocoEconomia(totaisIcms([a])), rank = blocoRanking(a), trigo = blocoTrigoMensal(a, historico);
   const blocos = (tipo === 'completo' ? [eco, rank, trigo] : tipo === 'icms' ? [eco] : tipo === 'trigo' ? [trigo] : [rank]).filter(Boolean);
-  return fechar([`*${TITULOS[tipo]} – ${quando.toUpperCase()}*`, abertura(tipo, a.nomeEmpresa, quando, false), ...blocos], blocos.length);
+  return fechar([`*${TITULOS[tipo]} – ${quando.toUpperCase()}*`, abertura(tipo, a.nomeEmpresa, quando, false, totaisIcms([a]).economia), ...blocos], blocos.length, a.nomeEmpresa);
 }
 export function montarMensagemPeriodo(auds: AuditoriaSalva[], tipo: TipoMensagem = 'completo') {
   const ord = ordenar(auds);
   const ini = ord[0], fim = ord[ord.length - 1];
   const quando = ini.mesReferencia === fim.mesReferencia ? nomeMes(ini.mesReferencia) : `${MESES[mesAno(ini.mesReferencia).m - 1]} a ${nomeMes(fim.mesReferencia)}`;
-  const eco = blocoEconomia(totaisIcms(ord), true), trigo = blocoTrigoPeriodo(ord);
+  const eco = blocoEconomia(totaisIcms(ord)), trigo = blocoTrigoPeriodo(ord);
   const blocos = (tipo === 'trigo' ? [trigo] : tipo === 'icms' ? [eco] : [eco, trigo]).filter(Boolean);
-  return fechar([`*${TITULOS[tipo]} – ${quando.toUpperCase()}*`, abertura(tipo, ini.nomeEmpresa, quando, true), ...blocos], blocos.length);
+  return fechar([`*${TITULOS[tipo]} – ${quando.toUpperCase()}*`, abertura(tipo, ini.nomeEmpresa, quando, true, totaisIcms(ord).economia), ...blocos], blocos.length, ini.nomeEmpresa);
 }
 
 /** Janela com a mensagem pronta para copiar. `auditorias` com 1 item = mensal; com vários = período. */
