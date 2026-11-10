@@ -4,7 +4,8 @@ import {
   X, Building2, TrendingUp, Wheat, ChevronDown, ChevronUp,
   Clock, BarChart2, AlertTriangle, RefreshCw, FileText, Printer
 } from 'lucide-react';
-import { carregarHistorico, carregarRascunhos, type AuditoriaSalva } from './storage';
+import { carregarHistorico, carregarRascunhos, carregarClientes, type AuditoriaSalva, type Cliente } from './storage';
+import { acharCnpj } from './relatorio';
 
 const fmt = (v: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
@@ -82,9 +83,10 @@ interface PrintablePainelProps {
   trigoOk: number;
   trigoTotal: number;
   periodoLabel: string;
+  clientes?: Cliente[];
 }
 
-function PrintablePainelReport({ empresasFiltradas, totalEconomiaGeral, trigoMediaGeral, trigoOk, trigoTotal, periodoLabel }: PrintablePainelProps) {
+function PrintablePainelReport({ empresasFiltradas, totalEconomiaGeral, trigoMediaGeral, trigoOk, trigoTotal, periodoLabel, clientes = [] }: PrintablePainelProps) {
   return (
     <div className="bg-[#FCFBF8] text-[#17150F] font-report text-[13px] min-w-[900px]">
       {/* Cabeçalho */}
@@ -148,7 +150,10 @@ function PrintablePainelReport({ empresasFiltradas, totalEconomiaGeral, trigoMed
           <div key={nome} className="px-8 py-7 break-inside-avoid">
             {/* Nome da empresa */}
             <div className="flex items-center justify-between mb-4 pb-3 border-b border-[#17150F]">
-              <h2 className="font-display text-lg text-[#17150F]">{nome}</h2>
+              <h2 className="font-display text-lg text-[#17150F]">
+                {nome}
+                {(() => { const c = acharCnpj(clientes, nome); return c ? <span className="font-report text-[11px] text-[#78736A] ml-3">CNPJ {c}</span> : null; })()}
+              </h2>
               <div className="flex gap-8 text-xs text-right">
                 <div>
                   <p className="text-[#78736A] font-medium uppercase tracking-wider">Economia Total</p>
@@ -463,8 +468,10 @@ export function TelaPainelGeral({ onClose }: PainelProps) {
   const [ordenar, setOrdenar] = useState<'economia' | 'nome' | 'trigo'>('economia');
   const [busca, setBusca] = useState('');
   const [printPainel, setPrintPainel] = useState(false);
+  const [clientes, setClientes] = useState<Cliente[]>([]);
 
   useEffect(() => {
+    carregarClientes().then(setClientes);
     Promise.all([carregarHistorico(), carregarRascunhos()]).then(([hist, rasc]) => {
       setHistorico(hist);
       setRascunhosNomes(new Set(rasc.map(r => r.nomeEmpresa)));
@@ -580,6 +587,7 @@ export function TelaPainelGeral({ onClose }: PainelProps) {
             trigoOk={trigoOk}
             trigoTotal={trigoTodos.length}
             periodoLabel={periodoLabel}
+            clientes={clientes}
           />
         </div>
       </>,

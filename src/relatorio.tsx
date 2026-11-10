@@ -3,17 +3,36 @@ import { createPortal } from 'react-dom';
 import { carregarClientes, type AuditoriaSalva, type SummaryRowSalvo } from './storage';
 import { nomeGrupoNcm4, nomeSubgrupoNcm6, type RankingIcms } from './rankingIcms';
 
-function useCnpjPorNome(nomeEmpresa: string | undefined): string | undefined {
+const normNome = (s: string) =>
+  s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/[^A-Z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
+
+export function formatarCnpjExibicao(v?: string): string {
+  // Aceita letras também (CNPJ alfanumérico). Qualquer entrada com 14 caracteres sai como 00.000.000/0000-00.
+  const limpo = (v ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  if (limpo.length === 14) return limpo.replace(/^(.{2})(.{3})(.{3})(.{4})(.{2})$/, '$1.$2.$3/$4-$5');
+  return (v ?? '').trim();
+}
+
+/** CNPJ do cliente cadastrado cujo nome bate com o da apuração. Aceita diferença de maiúsculas, acento e pontuação;
+ *  se não bater exatamente, só usa um nome parecido quando for o único candidato. */
+export function acharCnpj(clientes: { nome: string; cnpj: string }[], nomeEmpresa: string): string | undefined {
+  const alvo = normNome(nomeEmpresa);
+  if (!alvo) return undefined;
+  const comCnpj = clientes.filter(c => (c.cnpj ?? '').trim() !== '');
+  let achado = comCnpj.find(c => normNome(c.nome) === alvo);
+  if (!achado) {
+    const parecidos = comCnpj.filter(c => { const n = normNome(c.nome); return n.length >= 4 && alvo.length >= 4 && (n.startsWith(alvo) || alvo.startsWith(n)); });
+    if (parecidos.length === 1) achado = parecidos[0];
+  }
+  return achado ? formatarCnpjExibicao(achado.cnpj) : undefined;
+}
+
+export function useCnpjPorNome(nomeEmpresa: string | undefined): string | undefined {
   const [cnpj, setCnpj] = useState<string | undefined>(undefined);
   useEffect(() => {
     if (!nomeEmpresa) return;
     let ativo = true;
-    carregarClientes().then(lista => {
-      if (!ativo) return;
-      const alvo = nomeEmpresa.trim().toLowerCase();
-      const encontrado = lista.find(c => c.nome.trim().toLowerCase() === alvo);
-      setCnpj(encontrado?.cnpj || undefined);
-    });
+    carregarClientes().then(lista => { if (ativo) setCnpj(acharCnpj(lista, nomeEmpresa)); });
     return () => { ativo = false; };
   }, [nomeEmpresa]);
   return cnpj;
@@ -54,9 +73,10 @@ interface IcmsReportProps {
   mes?: string;
   wheatPrintData?: any;
   ranking?: RankingIcms | null;
+  cnpj?: string;
 }
 
-export function PrintableIcmsReport({ data, summaryTable, fileName, mes, wheatPrintData, ranking }: IcmsReportProps) {
+export function PrintableIcmsReport({ data, summaryTable, fileName, mes, wheatPrintData, ranking, cnpj }: IcmsReportProps) {
   const companyName = fileName.replace('AUDITORIA_', '').split('.')[0].replace(/_/g, ' ').toUpperCase();
 
   const totalSimples    = round(summaryTable.find(r => r.label.toUpperCase().includes('SIMPLES NACIONAL'))?.icmsAntecipado || 0);
@@ -99,6 +119,7 @@ export function PrintableIcmsReport({ data, summaryTable, fileName, mes, wheatPr
             <p className="text-lg font-medium text-[#CFC9BE]">
               Análise estratégica para empresa <span className="text-[#FCFBF8] font-semibold">{companyName}</span>
             </p>
+            {cnpj && <p className="text-sm font-medium text-[#CFC9BE] mt-1">CNPJ {cnpj}</p>}
             {mes && <p className="text-base font-medium text-[#E7C453] mt-1">{mes}</p>}
           </div>
         </div>
@@ -121,7 +142,7 @@ export function PrintableIcmsReport({ data, summaryTable, fileName, mes, wheatPr
         </div>
 
         {/* Página 3: Ranking do ICMS antecipado por grupo (só quando a apuração guardou o ranking) */}
-        {ranking && <PaginaRankingIcms ranking={ranking} nomeEmpresa={companyName} mes={mes} quebra />}
+        {ranking && <PaginaRankingIcms ranking={ranking} nomeEmpresa={companyName} cnpj={cnpj} mes={mes} quebra />}
 
         {/* Página 3+: Tabela */}
         <div className="min-h-[297mm] bg-[#FCFBF8] p-14 break-after-page">
@@ -472,6 +493,7 @@ export function PrintOverlayMulti({ auditorias, modo, onDone }: PrintOverlayMult
             <p className="text-lg font-medium text-[#CFC9BE]">
               Análise estratégica para empresa <span className="text-[#FCFBF8] font-semibold">{empresa}</span>
             </p>
+            {cnpjEmpresa && <p className="text-sm font-medium text-[#CFC9BE] mt-1">CNPJ {cnpjEmpresa}</p>}
           </div>
         </div>
 
@@ -1000,6 +1022,7 @@ export function PrintOverlay({ auditoria, modo, onDone, incluirTrigo = true, inc
             mes={auditoria.mesReferencia}
             wheatPrintData={wheatForIcms}
             ranking={incluirRanking ? auditoria.rankingIcms : undefined}
+            cnpj={cnpjEmpresa}
           />
         )}
 
@@ -1022,7 +1045,7 @@ export function PrintOverlay({ auditoria, modo, onDone, incluirTrigo = true, inc
 // ─── PÁGINA: ICMS ANTECIPADO POR GRUPO DE PRODUTOS ───────────────────────────
 const fmtPct1 = (v: number) => `${v.toFixed(1).replace('.', ',')}%`;
 
-export function PaginaRankingIcms({ ranking, nomeEmpresa, mes, quebra }: { ranking: RankingIcms; nomeEmpresa: string; mes?: string; quebra?: boolean }) {
+export function PaginaRankingIcms({ ranking, nomeEmpresa, cnpj, mes, quebra }: { ranking: RankingIcms; nomeEmpresa: string; cnpj?: string; mes?: string; quebra?: boolean }) {
   const { totalIcms, totalCompras } = ranking;
   // Os nomes são resolvidos agora, pelo código do NCM: apurações salvas antes de um nome existir também ganham o nome novo.
   const grupos = ranking.grupos.map(g => ({
@@ -1047,7 +1070,9 @@ export function PaginaRankingIcms({ ranking, nomeEmpresa, mes, quebra }: { ranki
                 ICMS antecipado por <span className="italic" style={{ color: GOLD }}>grupo de produtos</span>
               </h1>
               <p className="text-[13px] text-[#5E594F] font-medium mt-2">
-                {nomeEmpresa}{mes ? ` · ${mes}` : ''}
+                {nomeEmpresa}
+                {cnpj && <span className="font-normal text-[#78736A] ml-2">CNPJ {cnpj}</span>}
+                {mes ? ` · ${mes}` : ''}
               </p>
             </div>
             <img src="/logo-black.png" alt="Contador de Padarias" className="h-8 w-auto shrink-0" />
@@ -1135,17 +1160,18 @@ export function PaginaRankingIcms({ ranking, nomeEmpresa, mes, quebra }: { ranki
   );
 }
 
-export function PrintableRankingIcms({ ranking, nomeEmpresa, mes }: { ranking: RankingIcms; nomeEmpresa: string; mes?: string }) {
+export function PrintableRankingIcms({ ranking, nomeEmpresa, cnpj, mes }: { ranking: RankingIcms; nomeEmpresa: string; cnpj?: string; mes?: string }) {
   return (
     <div className="bg-[#EDEAE2] py-12 print:p-0 print:bg-white text-[#17150F] font-report">
       <div className="max-w-[210mm] mx-auto shadow-2xl print:shadow-none">
-        <PaginaRankingIcms ranking={ranking} nomeEmpresa={nomeEmpresa} mes={mes} />
+        <PaginaRankingIcms ranking={ranking} nomeEmpresa={nomeEmpresa} cnpj={cnpj} mes={mes} />
       </div>
     </div>
   );
 }
 
 export function PrintOverlayRanking({ ranking, nomeEmpresa, mes, onDone }: { ranking: RankingIcms; nomeEmpresa: string; mes?: string; onDone: () => void }) {
+  const cnpj = useCnpjPorNome(nomeEmpresa);
   useEffect(() => {
     const originalTitle = document.title;
     document.title = `RANKING ICMS POR GRUPO - ${nomeEmpresa} ${(mes ?? '').replace('/', '-')}`.trim();
@@ -1174,7 +1200,7 @@ export function PrintOverlayRanking({ ranking, nomeEmpresa, mes, onDone }: { ran
         >
           ✕ Fechar prévia
         </button>
-        <PrintableRankingIcms ranking={ranking} nomeEmpresa={nomeEmpresa} mes={mes} />
+        <PrintableRankingIcms ranking={ranking} nomeEmpresa={nomeEmpresa} cnpj={cnpj} mes={mes} />
       </div>
     </>,
     document.body,
