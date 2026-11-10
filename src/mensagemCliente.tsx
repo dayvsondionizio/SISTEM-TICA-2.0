@@ -56,7 +56,7 @@ function blocoRanking(a: AuditoriaSalva) {
   const g2 = nomeGrupoNcm4(r.grupos[1].codigo, r.grupos[1].nome);
   const p = ((r.grupos[0].icms + r.grupos[1].icms) / r.totalIcms) * 100;
   return `📊 *Onde está o seu imposto*
-Montamos o ranking dos grupos de produtos que mais geraram ICMS no mês. Só *${g1}* e *${g2}* respondem por *${pct1(p)}* de todo o ICMS antecipado de ${brl(r.totalIcms)}.`;
+Agrupando os produtos pela classificação fiscal (NCM) das notas, *${g1}* e *${g2}* respondem por *${pct1(p)}* de todo o ICMS antecipado do mês (${brl(r.totalIcms)}). O ranking completo está no relatório.`;
 }
 /** Trigo do relatório mensal. Abaixo da meta, usa o acumulado do semestre (meses já salvos) para mostrar como compensar. */
 function blocoTrigoMensal(a: AuditoriaSalva, historico: AuditoriaSalva[]) {
