@@ -47,7 +47,7 @@ const mesesRestantes = (m: number) => { const fim = m <= 6 ? 6 : 12; return Arra
 function blocoEconomia(t: ReturnType<typeof totaisIcms>) {
   if (t.itens === 0) return '';
   const itens = t.itens === 1 ? '1 item foi comprado' : `${t.itens} itens foram comprados`;
-  return `*Economia possível: ${brl(t.economia)}*
+  return `*De onde vem essa economia*
 ${itens} de fornecedores do Simples Nacional, que pagam até 25,5% de ICMS. O mesmo produto comprado de um fornecedor do Regime Normal paga 5,5%: quase *5 vezes menos*. ${t.itens === 1 ? 'Esse item gerou' : 'Esses itens geraram'} ${brl(t.pago)} de ICMS, quando ${t.itens === 1 ? 'poderia' : 'poderiam'} ter gerado ${brl(t.projetado)}.`;
 }
 function blocoRanking(a: AuditoriaSalva) {
