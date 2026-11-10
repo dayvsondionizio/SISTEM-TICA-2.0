@@ -41,6 +41,7 @@ import { TelaPainelGeral } from './painel';
 import { PrintOverlay, PrintOverlayMulti, PrintOverlayRanking } from './relatorio';
 import { calcularRankingIcms, type RankingIcms } from './rankingIcms';
 import { ModalOpcoesPdfIcms } from './opcoesPdf';
+import ApuracaoApp from './apuracao/ApuracaoApp';
 import { ModalMensagemCliente } from './mensagemCliente';
 import { salvarAuditoria, carregarClientes, carregarHistorico, excluirAuditoria, salvarRascunho, carregarRascunhos, excluirRascunho, type Cliente, type RascunhoAuditoria, type BakeryItemSalvo } from './storage';
 import { groqChat } from './groqClient';
@@ -1021,7 +1022,8 @@ function TelaHome({ onSelectCliente, onOpenClientes, onOpenHistorico, onOpenPain
 }
 
 // ─── DASHBOARD DO CLIENTE ─────────────────────────────────────────────────────
-function DashboardCliente({ cliente, onNovaApuracao, onVoltar, onFinalizarRascunho }: {
+function DashboardCliente({ cliente, onNovaApuracao, onApurarQuestor, onVoltar, onFinalizarRascunho }: {
+  onApurarQuestor: () => void;
   cliente: Cliente;
   onNovaApuracao: () => void;
   onVoltar: () => void;
@@ -1169,7 +1171,7 @@ function DashboardCliente({ cliente, onNovaApuracao, onVoltar, onFinalizarRascun
 
       <main className="flex-1 max-w-5xl mx-auto w-full py-10 px-6 space-y-8">
         {/* KPIs do cliente */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
           <div className="bg-[#001F3F] rounded-3xl p-7 text-white shadow-xl shadow-[#001F3F]/20 relative overflow-hidden">
             <div className="absolute top-0 right-0 w-32 h-32 bg-sky-400 rounded-full blur-3xl opacity-10 -mr-8 -mt-8" />
             <p className="text-sky-200 text-[10px] font-bold uppercase tracking-widest mb-2">Economia Total Acumulada</p>
@@ -1186,6 +1188,19 @@ function DashboardCliente({ cliente, onNovaApuracao, onVoltar, onFinalizarRascun
             <div>
               <p className="font-black text-[#001F3F] group-hover:text-white text-lg mt-4 transition-colors">Nova Apuração</p>
               <p className="text-xs text-slate-400 group-hover:text-white/60 transition-colors mt-0.5">Importar planilha de compras</p>
+            </div>
+          </button>
+          <button
+            onClick={onApurarQuestor}
+            className="group bg-white hover:bg-[#17150F] border-2 border-dashed border-[#C9A227]/60 hover:border-[#17150F] rounded-3xl p-7 flex flex-col items-start justify-between transition-all duration-200 shadow-sm hover:shadow-xl relative"
+          >
+            <span className="absolute top-4 right-4 text-[9px] font-black uppercase tracking-widest bg-[#C9A227] text-[#17150F] px-2 py-0.5 rounded-full">Em teste</span>
+            <div className="bg-[#C9A227]/15 group-hover:bg-white/20 p-3 rounded-2xl transition-all">
+              <Calculator className="w-6 h-6 text-[#9A7B12] group-hover:text-[#C9A227] transition-colors" />
+            </div>
+            <div>
+              <p className="font-black text-[#17150F] group-hover:text-white text-lg mt-4 transition-colors">Fazer Apuração</p>
+              <p className="text-xs text-slate-400 group-hover:text-white/60 transition-colors mt-0.5">A partir da planilha crua do Questor</p>
             </div>
           </button>
         </div>
@@ -1578,7 +1593,7 @@ function DashboardCliente({ cliente, onNovaApuracao, onVoltar, onFinalizarRascun
 export default function App() {
   const { signOut } = useAuth();
   // Navegação: 'home' | 'dashboard' | 'auditoria'
-  const [tela, setTela] = useState<'home' | 'dashboard' | 'auditoria'>('home');
+  const [tela, setTela] = useState<'home' | 'dashboard' | 'auditoria' | 'apuracao'>('home');
   const [clienteAtivo, setClienteAtivo] = useState<Cliente | null>(null);
 
   const [isProcessing, setIsProcessing] = useState(false);
@@ -1702,12 +1717,18 @@ export default function App() {
     );
   }
 
+  // Apuração a partir da planilha crua do Questor (em teste; regras guardadas por cliente no navegador)
+  if (tela === 'apuracao' && clienteAtivo) {
+    return <ApuracaoApp clienteId={String(clienteAtivo.id)} clienteNome={clienteAtivo.nome} onVoltar={voltarDashboard} />;
+  }
+
   // Tela Dashboard do Cliente
   if (tela === 'dashboard' && clienteAtivo) {
     return (
       <DashboardCliente
         cliente={clienteAtivo}
         onNovaApuracao={() => setTela('auditoria')}
+        onApurarQuestor={() => setTela('apuracao')}
         onVoltar={voltarHome}
         onFinalizarRascunho={(r) => {
           setRascunhoParaFinalizar(r);
