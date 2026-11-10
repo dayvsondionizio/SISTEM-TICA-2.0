@@ -33,6 +33,7 @@ import {
   Edit3,
   Wheat,
   BarChart2,
+  MessageSquare,
   LogOut
 } from 'lucide-react';
 import { ModalSalvar, TelaHistorico, DetalheAuditoria, type AuditoriaSalva, type FornecedorSalvo } from './historico';
@@ -40,6 +41,7 @@ import { TelaPainelGeral } from './painel';
 import { PrintOverlay, PrintOverlayMulti, PrintOverlayRanking } from './relatorio';
 import { calcularRankingIcms, type RankingIcms } from './rankingIcms';
 import { ModalOpcoesPdfIcms } from './opcoesPdf';
+import { ModalMensagemCliente } from './mensagemCliente';
 import { salvarAuditoria, carregarClientes, carregarHistorico, excluirAuditoria, salvarRascunho, carregarRascunhos, excluirRascunho, type Cliente, type RascunhoAuditoria, type BakeryItemSalvo } from './storage';
 import { groqChat } from './groqClient';
 import { ModalSalvarRascunho, EditorRascunho, CardRascunho } from './rascunho';
@@ -1044,6 +1046,7 @@ function DashboardCliente({ cliente, onNovaApuracao, onVoltar, onFinalizarRascun
   const [printCardTrigo, setPrintCardTrigo] = useState<boolean>(true);
   const [printCardRanking, setPrintCardRanking] = useState<boolean>(false);
   const [printRankingAuditoria, setPrintRankingAuditoria] = useState<AuditoriaSalva | null>(null);
+  const [mensagemAuds, setMensagemAuds] = useState<AuditoriaSalva[] | null>(null);
   const [modoSelecao, setModoSelecao] = useState(false);
   const [selecionados, setSelecionados] = useState<Set<string>>(new Set());
   const [printMultiList, setPrintMultiList] = useState<AuditoriaSalva[] | null>(null);
@@ -1369,6 +1372,12 @@ function DashboardCliente({ cliente, onNovaApuracao, onVoltar, onFinalizarRascun
                               <Wheat className="w-3 h-3" />PDF Trigo
                             </button>
                           )}
+                          <button
+                            onClick={() => { setMensagemAuds([a]); setDropdownDownloadId(null); }}
+                            className="flex items-center gap-1 bg-emerald-700 hover:bg-emerald-800 text-white text-[10px] font-bold px-2.5 py-1.5 rounded-lg transition-colors"
+                          >
+                            <MessageSquare className="w-3 h-3" />Mensagem
+                          </button>
                           {a.rankingIcms && (
                             <button
                               onClick={() => { setPrintRankingAuditoria(a); setDropdownDownloadId(null); }}
@@ -1449,6 +1458,12 @@ function DashboardCliente({ cliente, onNovaApuracao, onVoltar, onFinalizarRascun
               </button>
             )}
             <button
+              onClick={() => setMensagemAuds(auditorias.filter(a => selecionados.has(a.id)))}
+              className="flex items-center gap-1.5 bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-bold px-3 py-2 rounded-xl transition-colors"
+            >
+              <MessageSquare className="w-3.5 h-3.5" />Mensagem
+            </button>
+            <button
               onClick={() => {
                 const lista = auditorias.filter(a => selecionados.has(a.id));
                 downloadExcelMulti(lista);
@@ -1475,6 +1490,9 @@ function DashboardCliente({ cliente, onNovaApuracao, onVoltar, onFinalizarRascun
           onCancelar={() => setOpcoesPdfCard(null)}
           onGerar={(o) => { setPrintCardTrigo(o.trigo); setPrintCardRanking(o.ranking); setPrintCardModo('icms'); setPrintCardAuditoria(opcoesPdfCard); setOpcoesPdfCard(null); }}
         />
+      )}
+      {mensagemAuds && mensagemAuds.length > 0 && (
+        <ModalMensagemCliente auditorias={mensagemAuds} onClose={() => setMensagemAuds(null)} />
       )}
       {printRankingAuditoria?.rankingIcms && (
         <PrintOverlayRanking

@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { Trash2, ChevronRight, X, Save, History, Building2, Calendar, CheckCircle2, XCircle, Edit3, Download, FileText, Wheat, RotateCcw, EyeOff, BarChart2 } from 'lucide-react';
+import { Trash2, ChevronRight, X, Save, History, Building2, Calendar, CheckCircle2, XCircle, Edit3, Download, FileText, Wheat, RotateCcw, EyeOff, BarChart2, MessageSquare } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { SeletorCliente } from './clientes';
 import { PrintOverlay, PrintOverlayRanking } from './relatorio';
 import { ModalOpcoesPdfIcms } from './opcoesPdf';
+import { ModalMensagemCliente } from './mensagemCliente';
 import {
   type AuditoriaSalva,
   type FornecedorSalvo,
@@ -122,6 +123,7 @@ export function DetalheAuditoria({ auditoria, onClose, onUpdate }: DetalheProps)
   const [showPdfOpcao, setShowPdfOpcao] = useState(false);
   const [pdfIcmsComRanking, setPdfIcmsComRanking] = useState<boolean>(false);
   const [printRanking, setPrintRanking] = useState(false);
+  const [showMensagem, setShowMensagem] = useState(false);
   const [pdfIcmsComTrigo, setPdfIcmsComTrigo] = useState<boolean>(true);
   const [editandoNome, setEditandoNome] = useState(false);
   const [novoNome, setNovoNome] = useState(dados.nomeEmpresa);
@@ -176,6 +178,7 @@ export function DetalheAuditoria({ auditoria, onClose, onUpdate }: DetalheProps)
 
   return (
     <>
+    {showMensagem && <ModalMensagemCliente auditorias={[dados]} onClose={() => setShowMensagem(false)} />}
     {printRanking && dados.rankingIcms && (
       <PrintOverlayRanking
         ranking={dados.rankingIcms}
@@ -270,6 +273,14 @@ export function DetalheAuditoria({ auditoria, onClose, onUpdate }: DetalheProps)
                 PDF Trigo
               </button>
             )}
+            <button
+              onClick={() => setShowMensagem(true)}
+              title="Mensagem pronta para enviar ao cliente junto com os relatórios"
+              className="flex items-center gap-2 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold px-4 py-2 rounded-xl transition-colors"
+            >
+              <MessageSquare className="w-4 h-4" />
+              Mensagem
+            </button>
             {dados.rankingIcms && (
               <button
                 onClick={() => setPrintRanking(true)}
@@ -367,6 +378,7 @@ export function TelaHistorico({ onClose }: HistoricoProps) {
   const [printModo, setPrintModo] = useState<'icms' | 'trigo'>('icms');
   const [printComRanking, setPrintComRanking] = useState<boolean>(false);
   const [printRankingCard, setPrintRankingCard] = useState<AuditoriaSalva | null>(null);
+  const [mensagemCard, setMensagemCard] = useState<AuditoriaSalva | null>(null);
   const [printComTrigo, setPrintComTrigo] = useState<boolean>(true);
   const [showPdfOpcaoCard, setShowPdfOpcaoCard] = useState<AuditoriaSalva | null>(null);
 
@@ -409,6 +421,7 @@ export function TelaHistorico({ onClose }: HistoricoProps) {
 
   return (
     <>
+      {mensagemCard && <ModalMensagemCliente auditorias={[mensagemCard]} onClose={() => setMensagemCard(null)} />}
       {printRankingCard?.rankingIcms && (
         <PrintOverlayRanking
           ranking={printRankingCard.rankingIcms}
@@ -533,6 +546,12 @@ export function TelaHistorico({ onClose }: HistoricoProps) {
                                           <Wheat className="w-3.5 h-3.5 text-amber-500" />PDF Trigo
                                         </button>
                                       )}
+                                      <button
+                                        onClick={() => { setMensagemCard(a); setDropdownId(null); }}
+                                        className="w-full flex items-center gap-2 px-4 py-3 text-xs font-bold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 transition-colors border-t border-slate-100"
+                                      >
+                                        <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />Mensagem
+                                      </button>
                                       {a.rankingIcms && (
                                         <button
                                           onClick={() => { setPrintRankingCard(a); setDropdownId(null); }}
