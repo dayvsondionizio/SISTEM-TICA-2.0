@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Upload, History, Check, X, Download, Save, AlertTriangle, Search, RotateCcw, ArrowLeft, Loader2, Filter, HelpCircle } from 'lucide-react';
 import {
   lerArquivo, decidir, aprender, antecipado, exportarExcel, cfopApurado, memoriaVazia, indexar, regraDoItem, resumoHistorico, ALIQ_PADRAO, PERC_SISTEMATICA, CFOPS_APURADOS,
-  type ArquivoLido, type Decisao, type Item, type Memoria, type Origem,
+  descreverNota, type ArquivoLido, type Decisao, type Item, type Memoria, type Origem, type Passo,
 } from './motor';
 import { carregarRegras, salvarRegras } from './regrasBanco';
 
@@ -101,11 +101,14 @@ export default function ApuracaoApp({ clienteId, clienteNome, onVoltar }: { clie
     const h = rp?.h ?? [];
     if (d.conflito && d.origem === 'produto' && !cfopApurado(it))
       return `Veio com CFOP ${it.cfop} no Questor, mas este produto já entrou na apuração antes. Confira o lançamento.`;
-    if (d.conflito && d.origem === 'produto' && h.length >= 2) {
+    const notaTxt = d.nota ? (d.nota.igual ? ` A nota deste mês é igual à anterior (${d.nota.agora}).` : ` A nota mudou: antes ${d.nota.antes}, agora ${d.nota.agora}.`) : '';
+    if (d.conflito && d.origem === 'produto' && h.length >= 2 && h[h.length - 2][1] !== h[h.length - 1][1] && !h[h.length - 1][3]) {
       const [ant, ult] = [h[h.length - 2], h[h.length - 1]];
       const txt = (p: typeof ult) => (p[1] ? `incluído a ${pctTxt(p[2])}` : 'excluído');
-      return `A analista mudou a decisão: em ${ant[0]} foi ${txt(ant)} e em ${ult[0]} foi ${txt(ult)}. O app seguiu o mais recente. Está certo assim?`;
+      return `A analista mudou a decisão: em ${ant[0]} foi ${txt(ant)} e em ${ult[0]} foi ${txt(ult)}. O app seguiu o mais recente.${notaTxt} Está certo assim?`;
     }
+    if (d.conflito && d.origem === 'produto' && d.nota && !d.nota.igual)
+      return `A nota mudou: antes ${d.nota.antes}, agora ${d.nota.agora}. O app manteve a última decisão (${d.incluir ? 'incluído' : 'excluído'}), mas a tributação pode ter mudado. Confira.`;
     if (d.conflito && d.origem === 'ncm-fornecedor')
       return `Produto novo. Este fornecedor já teve o NCM ${it.ncm} incluído e excluído em meses diferentes. Confira.`;
     if (d.origem === 'cst' && cfopApurado(it))
@@ -629,7 +632,7 @@ function Passo({ n, titulo, children }: { n: number; titulo: string; children: R
     </div>
   );
 }
-function PassoItem({ it, d, historico, temAjuste }: { it: Item; d: Decisao; historico: [string, 0 | 1, number, 0 | 1][]; temAjuste: boolean }) {
+function PassoItem({ it, d, historico, temAjuste }: { it: Item; d: Decisao; historico: Passo[]; temAjuste: boolean }) {
   const base = it.valor * (1 + PERC_SISTEMATICA), bcAliq = base * d.aliq / 100;
   const cstFora = ['40', '41', '60'].includes(it.cst.slice(-2).padStart(2, '0'));
   return (
@@ -651,9 +654,11 @@ function PassoItem({ it, d, historico, temAjuste }: { it: Item; d: Decisao; hist
           {historico.length > 0 && (
             <div className="mt-2 border border-[#EEE] rounded">
               <p className="text-[11px] uppercase tracking-wider text-stone-400 px-2 pt-1.5">Histórico deste produto</p>
-              {historico.map(([mes, inc, aliq, conf]) => (
-                <p key={mes} className="px-2 py-1 text-xs flex justify-between border-t border-[#F3F3F3]">
-                  <span>{mes}</span><span className={inc ? 'text-[#217346]' : 'text-stone-400'}>{inc ? `incluído a ${pctTxt(aliq)}` : 'excluído'}{conf ? ' · confirmado' : ''}</span>
+              {historico.map(([mes, inc, aliq, conf, cst, icms, cfop]) => (
+                <p key={mes} className="px-2 py-1 text-xs flex justify-between gap-2 border-t border-[#F3F3F3]">
+                  <span className="shrink-0">{mes}</span>
+                  <span className="text-stone-400 truncate">{descreverNota(cst, icms, cfop)}</span>
+                  <span className={`shrink-0 ${inc ? 'text-[#217346]' : 'text-[#B42318]'}`}>{inc ? `incluído a ${pctTxt(aliq)}` : 'excluído'}{conf ? ' · confirmado' : ''}</span>
                 </p>
               ))}
             </div>
@@ -706,7 +711,9 @@ function GuiaApuracao() {
       <Titulo>4. Cálculo</Titulo>
       <p>ICMS antecipado = Valor total × 1,25 × alíquota interna − ICMS destacado. A alíquota padrão é 20,5%. Bebidas alcoólicas (NCM 2204, 2205, 2206 e 2208) usam 27%. Se o produto tem alíquota no histórico, ela é usada.</p>
       <Titulo>5. A revisar</Titulo>
-      <p>Entram aqui os itens sem histórico (decididos só pelo CST), os produtos cuja decisão mudou no último mês, os CFOP a conferir e as alíquotas diferentes de 20,5%.</p>
+      <p>Entram aqui os itens sem histórico (decididos só pelo CST), os produtos cuja decisão mudou no último mês, os produtos cuja nota mudou (CST ou ICMS destacado diferentes da última vez), os CFOP a conferir e as alíquotas diferentes de 20,5%.</p>
+      <Titulo>O que a regra guarda de cada produto</Titulo>
+      <p>Fornecedor (CNPJ e tipo), código, descrição e NCM do produto e, mês a mês: se entrou ou não, a alíquota interna, se a analista confirmou, e como a nota veio (CST, com ou sem ICMS destacado, CFOP). O valor do produto não entra na regra.</p>
       <Titulo>6. Ajustes da analista</Titulo>
       <p>O ✓ inclui ou exclui o produto em todas as notas do mês. Se o produto tem histórico e a mudança contraria a última decisão, o app pede confirmação. Confirmando, a nova regra vale daqui para frente.</p>
       <Titulo>7. Finalizar</Titulo>

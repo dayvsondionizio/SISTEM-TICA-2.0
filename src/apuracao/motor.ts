@@ -13,6 +13,8 @@ export interface Item {
 export interface Decisao {
   incluir: boolean; origem: Origem; motivo: string;
   aliq: number; credSn: number; conflito?: boolean;
+  /** Comparação da nota deste mês com a do último mês em que o produto apareceu (quando o histórico tem essa informação). */
+  nota?: { igual: boolean; antes: string; agora: string };
 }
 
 // ─── leitura ─────────────────────────────────────────────────────────────────
@@ -114,8 +116,17 @@ const cstFinal = (it: Item) => it.cst.slice(-2).padStart(2, '0');
 const aliqGeral = (it: Item) => (it.aliqDest >= 27 || NCM_27.includes(it.ncm.replace(/\D/g, '').slice(0, 4)) ? 27 : ALIQ_PADRAO);
 
 // Regras de cada cliente: uma por produto do fornecedor, com o histórico de decisões mês a mês.
-/** [mês "MM/AAAA", incluiu (1/0), alíquota interna, confirmada pela analista (1) ou não (0)] */
-export type Passo = [string, 0 | 1, number, 0 | 1];
+/**
+ * [mês "MM/AAAA", incluiu (1/0), alíquota interna, confirmada pela analista (1/0),
+ *  CST final da nota, nota com ICMS destacado (1/0), CFOP]
+ * Os três últimos foram acrescentados depois: passos antigos podem não ter.
+ */
+export type Passo = [string, 0 | 1, number, 0 | 1, string?, (0 | 1)?, string?];
+
+/** Como a nota veio: o que se compara de um mês para o outro. */
+export const notaDoItem = (it: Item) => ({ cst: it.cst.slice(-2).padStart(2, '0'), icms: (it.icms > 0 ? 1 : 0) as 0 | 1, cfop: it.cfop.slice(0, 4) });
+export const descreverNota = (cst?: string, icms?: 0 | 1, cfop?: string) =>
+  [cst !== undefined ? `CST ${cst}` : '', icms !== undefined ? (icms ? 'com ICMS' : 'sem ICMS') : '', cfop ? `CFOP ${cfop}` : ''].filter(Boolean).join(', ');
 export interface RegraProduto { cnpj: string; cod: string; desc: string; ncm: string; tipo: string; h: Passo[] }
 export interface Memoria { produtos: Record<string, RegraProduto>; meses: string[] }
 export const memoriaVazia = (): Memoria => ({ produtos: {}, meses: [] });
@@ -167,9 +178,15 @@ export function decidir(it: Item, idx: Indice): Decisao {
   const anf = idx.ncmForn.get(`${it.cnpj}|${it.ncm}`), an = idx.ncm.get(it.ncm);
   const u = rp ? ultimo(rp) : undefined;
   const aliq = (u && u[1] ? u[2] : null) ?? anf?.aliq ?? an?.aliq ?? aliqGeral(it);
-  const base = { aliq, credSn: 0 };
+  const base: { aliq: number; credSn: number; nota?: Decisao['nota'] } = { aliq, credSn: 0 };
   // decisão mais recente diferente da anterior e não confirmada pela analista → revisar
   const mudou = !!rp && rp.h.length > 1 && !!u && !u[3] && rp.h[rp.h.length - 2][1] !== u[1];
+  // a nota deste mês veio diferente (CST ou ICMS destacado) da última vez que o produto apareceu?
+  const agora = notaDoItem(it);
+  const nota = u && u[4] !== undefined
+    ? { igual: u[4] === agora.cst && u[5] === agora.icms, antes: descreverNota(u[4], u[5], u[6]), agora: descreverNota(agora.cst, agora.icms, agora.cfop) }
+    : undefined;
+  base.nota = nota;
 
   if (!cfopApurado(it)) {
     // Produto já apurado antes que veio do Questor com outro CFOP de entrada (ex.: 1403): costuma ser lançamento a corrigir.
@@ -178,8 +195,9 @@ export function decidir(it: Item, idx: Indice): Decisao {
     return { ...base, incluir: false, origem: 'cfop', motivo: `CFOP ${it.cfop} fora da apuração` };
   }
   if (rp && u) {
-    return { ...base, incluir: !!u[1], origem: 'produto', conflito: mudou,
-      motivo: `Histórico do produto: ${resumoHistorico(rp).texto}${mudou ? '. A decisão mudou no último mês.' : ''}` };
+    const notaMudou = !!nota && !nota.igual;
+    return { ...base, incluir: !!u[1], origem: 'produto', conflito: mudou || notaMudou,
+      motivo: `Histórico do produto: ${resumoHistorico(rp).texto}${mudou ? '. A decisão mudou no último mês.' : ''}${notaMudou ? `. A nota mudou: antes ${nota!.antes}, agora ${nota!.agora}.` : ''}` };
   }
   const desc = (a: Agregado) => `${a.inc}× incluído, ${a.exc}× excluído (último: ${a.ultimoMes || '—'})`;
   if (anf) return { ...base, incluir: anf.ultima, origem: 'ncm-fornecedor', motivo: `Mesmo NCM deste fornecedor: ${desc(anf)}`, conflito: anf.inc > 0 && anf.exc > 0 };
@@ -195,13 +213,15 @@ export function decidir(it: Item, idx: Indice): Decisao {
  */
 export function aprender(mem: Memoria, itens: Item[], decisao: (it: Item) => { incluir: boolean; aliq: number | null; confirmado?: boolean }, mes: string): Memoria {
   const m: Memoria = { produtos: { ...mem.produtos }, meses: [...mem.meses] };
-  const porProduto = new Map<string, { it: Item; inc: number; exc: number; aliq: number | null; conf: boolean }>();
+  const porProduto = new Map<string, { it: Item; inc: number; exc: number; aliq: number | null; conf: boolean; notas: Map<string, number> }>();
   itens.forEach(it => {
     const d = decisao(it);
     if (!cfopApurado(it) && !d.incluir) return;
     const k = kProd(it.cnpj, it.produto);
-    const a = porProduto.get(k) ?? { it, inc: 0, exc: 0, aliq: null, conf: false };
+    const a = porProduto.get(k) ?? { it, inc: 0, exc: 0, aliq: null, conf: false, notas: new Map() };
     if (d.incluir) { a.inc++; if (d.aliq) a.aliq = d.aliq; } else a.exc++;
+    const n = notaDoItem(it), kn = `${n.cst}|${n.icms}|${n.cfop}`;
+    a.notas.set(kn, (a.notas.get(kn) ?? 0) + 1);
     if (d.confirmado) a.conf = true;
     porProduto.set(k, a);
   });
@@ -211,7 +231,10 @@ export function aprender(mem: Memoria, itens: Item[], decisao: (it: Item) => { i
       : { cnpj: a.it.cnpj, cod: a.it.produto, desc: normDesc(a.it.descricao), ncm: a.it.ncm, tipo: a.it.tipo, h: [] };
     r.ncm = a.it.ncm; r.desc = normDesc(a.it.descricao); r.tipo = a.it.tipo;
     const incluiu = a.inc >= a.exc;
-    r.h = [...r.h, [mes, incluiu ? 1 : 0, incluiu ? (a.aliq ?? ALIQ_PADRAO) : 0, a.conf ? 1 : 0] as Passo].sort((x, y) => ordemMes(x[0]) - ordemMes(y[0]));
+    // a nota mais frequente do produto no mês
+    const [cst, icms, cfop] = [...a.notas.entries()].sort((x, y) => y[1] - x[1])[0][0].split('|');
+    r.h = [...r.h, [mes, incluiu ? 1 : 0, incluiu ? (a.aliq ?? ALIQ_PADRAO) : 0, a.conf ? 1 : 0, cst, (icms === '1' ? 1 : 0) as 0 | 1, cfop] as Passo]
+      .sort((x, y) => ordemMes(x[0]) - ordemMes(y[0]));
     m.produtos[k] = r;
   });
   if (mes && !m.meses.includes(mes)) m.meses = [...m.meses, mes].sort((a, b) => ordemMes(a) - ordemMes(b));
