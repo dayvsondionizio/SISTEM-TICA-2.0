@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Upload, History, Check, X, Download, Save, AlertTriangle, Search, RotateCcw, ArrowLeft, Loader2 } from 'lucide-react';
+import { Upload, History, Check, X, Download, Save, AlertTriangle, Search, RotateCcw, ArrowLeft, Loader2, Filter, HelpCircle } from 'lucide-react';
 import {
-  lerArquivo, decidir, aprender, antecipado, exportarExcel, cfopApurado, memoriaVazia, indexar, regraDoItem, resumoHistorico, ALIQ_PADRAO,
+  lerArquivo, decidir, aprender, antecipado, exportarExcel, cfopApurado, memoriaVazia, indexar, regraDoItem, resumoHistorico, ALIQ_PADRAO, PERC_SISTEMATICA, CFOPS_APURADOS,
   type ArquivoLido, type Decisao, type Item, type Memoria, type Origem,
 } from './motor';
 import { carregarRegras, salvarRegras } from './regrasBanco';
@@ -34,6 +34,9 @@ export default function ApuracaoApp({ clienteId, clienteNome, onVoltar }: { clie
   const [pendente, setPendente] = useState<Pendente | null>(null);
   const [aba, setAba] = useState<Aba>('sistematica');
   const [busca, setBusca] = useState('');
+  const [filtros, setFiltros] = useState<Record<string, Set<string>>>({});
+  const [filtroAberto, setFiltroAberto] = useState<{ chave: string; titulo: string; x: number; y: number } | null>(null);
+  const [painel, setPainel] = useState<{ tipo: 'item'; it: Item } | { tipo: 'guia' } | null>(null);
   const [limite, setLimite] = useState(150);
   const [erro, setErro] = useState('');
   const [aviso, setAviso] = useState('');
@@ -91,8 +94,27 @@ export default function ApuracaoApp({ clienteId, clienteNome, onVoltar }: { clie
     return s;
   }, [ana, itens, decisoes]);
 
-  const precisaRevisar = (it: Item, d: Decisao) =>
-    !!d.conflito || (cfopApurado(it) && (d.origem === 'cst' || (d.incluir && d.aliq !== ALIQ_PADRAO)));
+  /** Em linguagem simples: o que a analista precisa conferir neste item (null = nada). Ajustes já feitos por ela saem da lista. */
+  const motivoRevisao = (it: Item, d: Decisao): string | null => {
+    if (d.origem === 'manual') return null;
+    const rp = regraDoItem(it, idx);
+    const h = rp?.h ?? [];
+    if (d.conflito && d.origem === 'produto' && !cfopApurado(it))
+      return `Veio com CFOP ${it.cfop} no Questor, mas este produto já entrou na apuração antes. Confira o lançamento.`;
+    if (d.conflito && d.origem === 'produto' && h.length >= 2) {
+      const [ant, ult] = [h[h.length - 2], h[h.length - 1]];
+      const txt = (p: typeof ult) => (p[1] ? `incluído a ${pctTxt(p[2])}` : 'excluído');
+      return `A analista mudou a decisão: em ${ant[0]} foi ${txt(ant)} e em ${ult[0]} foi ${txt(ult)}. O app seguiu o mais recente. Está certo assim?`;
+    }
+    if (d.conflito && d.origem === 'ncm-fornecedor')
+      return `Produto novo. Este fornecedor já teve o NCM ${it.ncm} incluído e excluído em meses diferentes. Confira.`;
+    if (d.origem === 'cst' && cfopApurado(it))
+      return `Produto novo, sem histórico: o app decidiu só pelo CST ${it.cst} (${d.incluir ? 'tributado, entra' : 'isento, não tributado ou ST, fica fora'}). Confira.`;
+    if (d.incluir && d.aliq !== ALIQ_PADRAO && !h.some(p => p[1] && p[2] === d.aliq))
+      return `Alíquota de ${pctTxt(d.aliq)} aplicada pela regra de bebida alcoólica (NCM ${it.ncm}). Confira.`;
+    return null;
+  };
+  const precisaRevisar = (it: Item, d: Decisao) => motivoRevisao(it, d) !== null;
 
   const listas = useMemo(() => ({
     crua: itens,
@@ -103,12 +125,30 @@ export default function ApuracaoApp({ clienteId, clienteNome, onVoltar }: { clie
     divergencias: itens.filter(i => divergentes.has(i.id)),
   }), [itens, decisoes, divergentes]);
 
-  const visiveis = useMemo(() => {
+  // valor de cada coluna usado pelo filtro (como o autofiltro do Excel)
+  const valorFiltro = (chave: string, it: Item, d: Decisao): string => {
+    switch (chave) {
+      case 'status': return d.incluir ? 'Incluído' : 'Excluído';
+      case 'porque': return ORIGEM[d.origem].rotulo + (d.conflito ? ' (revisar)' : '');
+      case 'A': return it.fornecedor; case 'B': return it.razao; case 'C': return it.cnpj; case 'D': return it.tipo;
+      case 'E': return it.numero; case 'F': return it.data; case 'G': return it.chave; case 'H': return it.produto;
+      case 'I': return it.descricao; case 'J': return it.ncm; case 'K': return it.cfop; case 'L': return it.un;
+      case 'M': return it.qtd.toLocaleString('pt-BR'); case 'N': return n2(it.vunit); case 'O': return n2(it.valor);
+      case 'P': return it.cst; case 'Q': return n2(it.bc); case 'R': return n2(it.aliqDest); case 'S': return n2(it.icms);
+      case 'Z': return d.incluir ? pctTxt(d.aliq) : '';
+      default: return '';
+    }
+  };
+  const filtrar = (l: Item[], ignorar?: string) => {
     const q = busca.trim().toUpperCase();
-    const l = listas[aba];
-    if (!q) return l;
-    return l.filter(i => `${i.razao} ${i.descricao} ${i.ncm} ${i.cfop} ${i.cst} ${i.produto}`.toUpperCase().includes(q));
-  }, [listas, aba, busca]);
+    return l.filter(i => {
+      if (q && !`${i.razao} ${i.descricao} ${i.ncm} ${i.cfop} ${i.cst} ${i.produto}`.toUpperCase().includes(q)) return false;
+      const d = decisoes.get(i.id)!;
+      return Object.entries(filtros as Record<string, Set<string>>).every(([k, set]) => k === ignorar || set.has(valorFiltro(k, i, d)));
+    });
+  };
+  const visiveis = useMemo(() => filtrar(listas[aba]), [listas, aba, busca, filtros, decisoes]);
+  const qtdFiltros = Object.keys(filtros).length;
 
   const resumoIcms = useMemo(() => {
     const m = new Map<string, [number, number]>();
@@ -142,6 +182,7 @@ export default function ApuracaoApp({ clienteId, clienteNome, onVoltar }: { clie
       { letra: 'S', titulo: 'Valor ICMS', dir: true, celula: it => n2(it.icms) },
     ];
     if (aba === 'crua' || aba === 'itens') return base;
+    const resumida = aba === 'revisar';
     const so = (d: Decisao, v: React.ReactNode) => (d.incluir ? v : '');
     return [...base,
       { letra: 'T', titulo: 'VALOR TOTAL LIQUIDO', dir: true, calc: true, celula: (it, d) => so(d, n2(it.valor)) },
@@ -156,7 +197,7 @@ export default function ApuracaoApp({ clienteId, clienteNome, onVoltar }: { clie
             {[...new Set([20.5, 27, d.aliq])].map(v => <option key={v} value={v}>{String(v).replace('.', ',')}%</option>)}
           </select>{n2(it.valor * 1.25 * d.aliq / 100)}</span>) },
       { letra: 'AA', titulo: 'VALOR DO ICMS ANTECIPADO', dir: true, calc: true, celula: (it, d) => so(d, <b>{n2(antecipado(it, d))}</b>) },
-    ];
+    ].filter(c => !resumida || ['B', 'I', 'J', 'K', 'P', 'O', 'Z', 'AA'].includes(c.letra));
   }, [aba, manuais, itens, idx]);
 
   // ── ações ──
@@ -216,10 +257,20 @@ export default function ApuracaoApp({ clienteId, clienteNome, onVoltar }: { clie
 
   const qtdProdutos = Object.keys(mem.produtos).length;
 
+  const botaoFiltro = (chave: string, titulo: string) => {
+    const ativo = !!filtros[chave];
+    return (
+      <button title={`Filtrar ${titulo}`} onClick={e => { const r = (e.currentTarget as HTMLElement).getBoundingClientRect(); setFiltroAberto({ chave, titulo, x: r.left, y: r.bottom + 4 }); }}
+        className={`inline-flex items-center justify-center w-4 h-4 rounded border ${ativo ? 'bg-[#217346] border-[#217346] text-white' : 'border-[#C8C8C8] text-[#888] bg-white hover:border-[#217346]'}`}>
+        <Filter className="w-2.5 h-2.5" />
+      </button>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-[#FCFBF8] text-[#17150F] font-report">
       <header className="border-b border-[#E7E2D6] bg-[#17150F] text-white">
-        <div className="max-w-[1400px] mx-auto px-6 py-4 flex items-center gap-4">
+        <div className="px-4 lg:px-6 py-3 flex items-center gap-4">
           <button onClick={onVoltar} title="Voltar ao cliente" className="bg-white/10 hover:bg-white/20 p-2 rounded-lg border border-white/10">
             <ArrowLeft className="w-5 h-5 text-[#C9A227]" />
           </button>
@@ -227,10 +278,14 @@ export default function ApuracaoApp({ clienteId, clienteNome, onVoltar }: { clie
             <p className="text-[10px] uppercase tracking-[0.2em] text-[#C9A227] font-semibold">Apuração da Sistemática · em teste</p>
             <h1 className="font-display text-2xl">{clienteNome}</h1>
           </div>
+          <button onClick={() => setPainel({ tipo: 'guia' })}
+            className="ml-auto flex items-center gap-1.5 text-xs font-semibold text-[#C9A227] border border-[#C9A227]/50 hover:bg-white/10 px-3 py-1.5 rounded-lg">
+            <HelpCircle className="w-4 h-4" />Como o app apura
+          </button>
         </div>
       </header>
 
-      <main className="max-w-[1400px] mx-auto px-6 py-6 space-y-5">
+      <main className="px-4 lg:px-6 py-4 space-y-4">
         {/* regras do cliente */}
         <section className="bg-white border border-[#E7E2D6] rounded-xl p-4 flex items-center gap-3">
           <History className="w-4 h-4 text-[#9A7B12] shrink-0" />
@@ -313,8 +368,15 @@ export default function ApuracaoApp({ clienteId, clienteNome, onVoltar }: { clie
                   {aba === 'itens' && 'Itens com CFOP de compra para comercialização (1102) e bonificação (1910).'}
                   {aba === 'sistematica' && 'Itens que entram no cálculo, com as mesmas colunas e fórmulas da planilha.'}
                   {aba === 'icms' && 'Resumo por tipo de fornecedor (a tabela dinâmica da aba ICMS).'}
-                  {aba === 'revisar' && 'Itens sem histórico, com decisão que mudou entre meses, CFOP a conferir ou alíquota diferente de 20,5%.'}
+                  {aba === 'revisar' && 'Itens em que o app não tem certeza. Leia "O que conferir" e clique em manter ou trocar: o item sai desta lista e, ao finalizar, a decisão vira regra.'}
                   {aba === 'divergencias' && 'Itens em que o app decidiu diferente da apuração da analista.'}
+                </p>
+                <p className="w-full text-[10px] text-stone-500 flex flex-wrap gap-x-4 gap-y-1">
+                  <span><span className="inline-block w-2.5 h-2.5 align-middle bg-[#217346] rounded-sm mr-1" />✓ verde = entra na apuração</span>
+                  <span><span className="inline-block w-2.5 h-2.5 align-middle bg-[#EDEDED] border border-[#C8C8C8] rounded-sm mr-1" />linha cinza = fora da apuração</span>
+                  <span><span className="inline-block w-2.5 h-2.5 align-middle bg-[#FFF2CC] rounded-sm mr-1" />colunas amarelas = cálculo da sistemática (T a AA)</span>
+                  <span><span className="inline-block w-2.5 h-2.5 align-middle bg-[#FBF7EA] border border-[#C9A227] rounded-sm mr-1" />alíquota em dourado = diferente de 20,5%</span>
+                  <span>⚠ no selo = item para conferir · clique no selo para ver o passo a passo</span>
                 </p>
                 <div className="ml-auto flex items-center gap-2">
                   {aba !== 'icms' && (
@@ -324,13 +386,18 @@ export default function ApuracaoApp({ clienteId, clienteNome, onVoltar }: { clie
                         className="border border-[#C8C8C8] rounded pl-8 pr-3 py-1 text-xs w-72 bg-white" />
                     </div>
                   )}
+                  {qtdFiltros > 0 && (
+                    <button onClick={() => setFiltros({})} className="flex items-center gap-1 text-xs font-semibold text-[#217346] border border-[#217346]/40 bg-[#F3F9F5] rounded px-2 py-1">
+                      <Filter className="w-3.5 h-3.5" />{qtdFiltros} filtro(s) · limpar
+                    </button>
+                  )}
                   {manuais.size > 0 && (
                     <button onClick={() => setManuais(new Map())} className="flex items-center gap-1 text-xs text-stone-500 hover:text-stone-800 px-2"><RotateCcw className="w-3.5 h-3.5" />Desfazer ajustes</button>
                   )}
                 </div>
               </div>
 
-              <div className="overflow-auto max-h-[64vh]">
+              <div className="overflow-auto" style={{ maxHeight: 'calc(100vh - 150px)', minHeight: 360 }}>
                 {aba === 'icms' ? (
                   <table className="text-[12px] border-collapse m-4">
                     <tbody>
@@ -348,16 +415,20 @@ export default function ApuracaoApp({ clienteId, clienteNome, onVoltar }: { clie
                         <th className="sticky left-0 z-20 bg-[#F3F3F3] border border-[#D4D4D4] w-10"></th>
                         <th className="border border-[#D4D4D4] w-8"></th>
                         {colunas.map(c => <th key={c.letra} className="border border-[#D4D4D4] font-normal px-1 py-0.5">{c.letra}</th>)}
+                        {aba === 'revisar' && <th className="border border-[#D4D4D4] font-normal px-1">Conferir</th>}
                         <th className="border border-[#D4D4D4] font-normal px-1">Por quê</th>
                         {ana && <th className="border border-[#D4D4D4] font-normal px-1">Analista</th>}
                       </tr>
                       <tr className="bg-[#FFFFFF] text-[#17150F]">
                         <th className="sticky left-0 z-20 bg-[#F3F3F3] border border-[#D4D4D4] text-[#666] font-normal">1</th>
-                        <th className="border border-[#D4D4D4] bg-white"></th>
+                        <th className="border border-[#D4D4D4] bg-white px-0.5">{botaoFiltro('status', 'Na apuração')}</th>
                         {colunas.map(c => (
-                          <th key={c.letra} className={`border border-[#D4D4D4] px-1.5 py-1 font-bold whitespace-nowrap ${c.calc ? 'bg-[#FFF2CC]' : 'bg-white'} ${c.dir ? 'text-right' : 'text-left'}`}>{c.titulo}</th>
+                          <th key={c.letra} className={`border border-[#D4D4D4] px-1.5 py-1 font-bold whitespace-nowrap ${c.calc ? 'bg-[#FFF2CC]' : 'bg-white'} ${c.dir ? 'text-right' : 'text-left'}`}>
+                            <span className="inline-flex items-center gap-1">{c.titulo}{(!c.calc || c.letra === 'Z') && botaoFiltro(c.letra, c.titulo)}</span>
+                          </th>
                         ))}
-                        <th className="border border-[#D4D4D4] bg-white"></th>
+                        {aba === 'revisar' && <th className="border border-[#D4D4D4] bg-[#FBF7EA] px-1.5 text-left font-bold">O que conferir</th>}
+                        <th className="border border-[#D4D4D4] bg-white px-1.5 text-left font-bold whitespace-nowrap"><span className="inline-flex items-center gap-1">Por quê{botaoFiltro('porque', 'Por quê')}</span></th>
                         {ana && <th className="border border-[#D4D4D4] bg-white"></th>}
                       </tr>
                     </thead>
@@ -380,10 +451,26 @@ export default function ApuracaoApp({ clienteId, clienteNome, onVoltar }: { clie
                                 {c.celula(it, d)}
                               </td>
                             ))}
+                            {aba === 'revisar' && (
+                              <td className="border border-[#E1E1E1] px-2 py-1 bg-[#FFFDF6] min-w-[340px] max-w-[460px] whitespace-normal">
+                                <p className="text-[11px] text-[#5E4B0C] leading-snug">{motivoRevisao(it, d)}</p>
+                                <div className="flex gap-1.5 mt-1">
+                                  <button onClick={() => aplicar(it, d.incluir, d.aliq, true)}
+                                    className="text-[10px] font-semibold px-2 py-0.5 rounded bg-[#217346] text-white hover:bg-[#1a5c38]">
+                                    Está certo: manter {d.incluir ? 'incluído' : 'excluído'}
+                                  </button>
+                                  <button onClick={() => alternar(it)}
+                                    className="text-[10px] font-semibold px-2 py-0.5 rounded border border-[#C8C8C8] bg-white hover:border-stone-500">
+                                    Trocar para {d.incluir ? 'excluído' : 'incluído'}
+                                  </button>
+                                </div>
+                              </td>
+                            )}
                             <td className="border border-[#E1E1E1] px-1.5">
-                              <span title={d.motivo} className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold whitespace-nowrap ${ORIGEM[d.origem].cor}`}>
-                                {d.conflito && <AlertTriangle className="w-3 h-3" />}{ORIGEM[d.origem].rotulo}
-                              </span>
+                              <button onClick={() => setPainel({ tipo: 'item', it })} title="Ver o passo a passo deste item"
+                                className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold whitespace-nowrap hover:ring-1 hover:ring-current ${ORIGEM[d.origem].cor}`}>
+                                {d.conflito && <AlertTriangle className="w-3 h-3" />}{ORIGEM[d.origem].rotulo}<HelpCircle className="w-3 h-3 opacity-60" />
+                              </button>
                             </td>
                             {ana && (
                               <td className="border border-[#E1E1E1] px-1.5 whitespace-nowrap text-[10px]">
@@ -445,6 +532,174 @@ export default function ApuracaoApp({ clienteId, clienteNome, onVoltar }: { clie
           </>
         )}
       </main>
+
+      {filtroAberto && arquivo && (
+        <PopoverFiltro
+          titulo={filtroAberto.titulo} x={filtroAberto.x} y={filtroAberto.y}
+          valores={(() => {
+            const m = new Map<string, number>();
+            filtrar(listas[aba], filtroAberto.chave).forEach(i => { const v = valorFiltro(filtroAberto.chave, i, decisoes.get(i.id)!); m.set(v, (m.get(v) ?? 0) + 1); });
+            return [...m.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+          })()}
+          selecionados={filtros[filtroAberto.chave]}
+          onAplicar={sel => { const k = filtroAberto.chave; setFiltros(f => { const n = { ...f }; if (sel) n[k] = sel; else delete n[k]; return n; }); setLimite(150); setFiltroAberto(null); }}
+          onFechar={() => setFiltroAberto(null)}
+        />
+      )}
+
+      {painel && (
+        <div className="fixed inset-0 z-40 bg-black/30" onClick={() => setPainel(null)}>
+          <aside className="absolute right-0 top-0 h-full w-full max-w-[460px] bg-white shadow-2xl overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="sticky top-0 bg-[#17150F] text-white px-5 py-4 flex items-center justify-between">
+              <p className="font-display text-lg">{painel.tipo === 'guia' ? 'Como o app apura' : 'Passo a passo deste item'}</p>
+              <button onClick={() => setPainel(null)} className="text-white/60 hover:text-white"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="p-5 text-sm leading-relaxed">
+              {painel.tipo === 'guia' ? <GuiaApuracao /> : (
+                <PassoItem it={painel.it} d={decisoes.get(painel.it.id)!} historico={regraDoItem(painel.it, idx)?.h ?? []} temAjuste={manuais.has(painel.it.id)} />
+              )}
+            </div>
+          </aside>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── filtro por coluna (como o autofiltro do Excel) ──────────────────────────
+function PopoverFiltro({ titulo, x, y, valores, selecionados, onAplicar, onFechar }: {
+  titulo: string; x: number; y: number; valores: [string, number][]; selecionados?: Set<string>;
+  onAplicar: (sel: Set<string> | null) => void; onFechar: () => void;
+}) {
+  const [marc, setMarc] = useState<Set<string>>(() => new Set(selecionados ?? valores.map(v => v[0])));
+  const [q, setQ] = useState('');
+  const lista = valores.filter(([v]) => v.toUpperCase().includes(q.toUpperCase()));
+  const todos = lista.every(([v]) => marc.has(v));
+  const esq = Math.min(x, window.innerWidth - 300);
+  return (
+    <div className="fixed inset-0 z-50" onClick={onFechar}>
+      <div className="absolute w-72 bg-white border border-[#C8C8C8] rounded-lg shadow-xl text-xs" style={{ left: esq, top: Math.min(y, window.innerHeight - 380) }} onClick={e => e.stopPropagation()}>
+        <div className="px-3 pt-3 pb-2 border-b border-[#EEE]">
+          <p className="font-semibold mb-2">Filtrar: {titulo}</p>
+          <input autoFocus value={q} onChange={e => setQ(e.target.value)} placeholder="Pesquisar…" className="w-full border border-[#C8C8C8] rounded px-2 py-1" />
+        </div>
+        <div className="max-h-60 overflow-y-auto px-3 py-2 space-y-1">
+          <label className="flex items-center gap-2 font-semibold">
+            <input type="checkbox" checked={todos} onChange={() => setMarc(m => { const n = new Set(m); lista.forEach(([v]) => (todos ? n.delete(v) : n.add(v))); return n; })} />(Selecionar tudo)
+          </label>
+          {lista.slice(0, 500).map(([v, n]) => (
+            <label key={v} className="flex items-center gap-2">
+              <input type="checkbox" checked={marc.has(v)} onChange={() => setMarc(m => { const t = new Set(m); if (t.has(v)) t.delete(v); else t.add(v); return t; })} />
+              <span className="truncate flex-1" title={v}>{v || '(vazio)'}</span><span className="text-stone-400">{n}</span>
+            </label>
+          ))}
+          {lista.length > 500 && <p className="text-stone-400">… use a pesquisa para ver os demais ({lista.length - 500})</p>}
+        </div>
+        <div className="flex justify-between gap-2 px-3 py-2 border-t border-[#EEE]">
+          <button onClick={() => onAplicar(null)} className="text-stone-500 hover:text-stone-800">Limpar filtro</button>
+          <div className="flex gap-2">
+            <button onClick={onFechar} className="px-3 py-1 rounded border border-[#C8C8C8]">Cancelar</button>
+            <button onClick={() => onAplicar(marc.size === valores.length ? null : marc)} className="px-3 py-1 rounded bg-[#217346] text-white font-semibold">OK</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── passo a passo de um item ────────────────────────────────────────────────
+function Passo({ n, titulo, children }: { n: number; titulo: string; children: React.ReactNode }) {
+  return (
+    <div className="flex gap-3 pb-4">
+      <span className="w-6 h-6 shrink-0 rounded-full bg-[#F4EDD3] text-[#7A6110] text-xs font-bold flex items-center justify-center">{n}</span>
+      <div className="flex-1"><p className="font-semibold">{titulo}</p><div className="text-stone-600 mt-0.5">{children}</div></div>
+    </div>
+  );
+}
+function PassoItem({ it, d, historico, temAjuste }: { it: Item; d: Decisao; historico: [string, 0 | 1, number, 0 | 1][]; temAjuste: boolean }) {
+  const base = it.valor * (1 + PERC_SISTEMATICA), bcAliq = base * d.aliq / 100;
+  const cstFora = ['40', '41', '60'].includes(it.cst.slice(-2).padStart(2, '0'));
+  return (
+    <>
+      <p className="font-display text-xl leading-snug">{it.descricao}</p>
+      <p className="text-xs text-stone-500 mt-1">{it.razao} ({it.tipo}) · NF {it.numero} · cód. {it.produto} · NCM {it.ncm}</p>
+      <p className={`mt-3 inline-block text-xs font-bold px-2 py-1 rounded ${d.incluir ? 'bg-[#E8F3EC] text-[#217346]' : 'bg-stone-100 text-stone-500'}`}>
+        {d.incluir ? `Entra na apuração · ICMS antecipado ${brl(antecipado(it, d))}` : 'Fora da apuração'}
+      </p>
+      {d.conflito && <p className="mt-2 text-xs text-[#7A6110] bg-[#FBF7EA] border border-[#E9DDB0] rounded px-2 py-1.5">Está em "A revisar": confira a decisão abaixo antes de finalizar.</p>}
+      <div className="mt-5">
+        <Passo n={1} titulo={`Natureza (CFOP) ${it.cfop}`}>
+          {cfopApurado(it) ? `É compra para comercialização ou bonificação (${CFOPS_APURADOS.join(' ou ')}), então o item é analisado.`
+            : d.incluir ? 'Não é 1102 nem 1910, mas este produto já entrou na apuração antes. Pode ser lançamento a corrigir no Questor.'
+            : 'Só entram 1102 (compra para comercialização) e 1910 (bonificação). Outras entradas, como 1403 (compra com ST), 1556 (uso e consumo) e 2102 (outro estado), ficam fora.'}
+        </Passo>
+        <Passo n={2} titulo="Decisão">
+          <p>{temAjuste ? 'Ajustado pela analista nesta apuração.' : d.motivo}</p>
+          {historico.length > 0 && (
+            <div className="mt-2 border border-[#EEE] rounded">
+              <p className="text-[11px] uppercase tracking-wider text-stone-400 px-2 pt-1.5">Histórico deste produto</p>
+              {historico.map(([mes, inc, aliq, conf]) => (
+                <p key={mes} className="px-2 py-1 text-xs flex justify-between border-t border-[#F3F3F3]">
+                  <span>{mes}</span><span className={inc ? 'text-[#217346]' : 'text-stone-400'}>{inc ? `incluído a ${pctTxt(aliq)}` : 'excluído'}{conf ? ' · confirmado' : ''}</span>
+                </p>
+              ))}
+            </div>
+          )}
+        </Passo>
+        <Passo n={3} titulo={`CST ${it.cst}`}>
+          {cstFora ? 'Final 40, 41 ou 60 (isento, não tributado ou ST). Sem histórico, fica fora. Com histórico, vale a decisão da analista.'
+            : 'Tributado. Sem histórico, entra. Com histórico, vale a decisão da analista.'}
+        </Passo>
+        {d.incluir && (
+          <Passo n={4} titulo="Cálculo (colunas T a AA)">
+            <table className="w-full text-xs mt-1 tabular-nums">
+              <tbody>
+                <tr><td>Valor total (O)</td><td className="text-right">{n2(it.valor)}</td></tr>
+                <tr><td>+ {PERC_SISTEMATICA * 100}% da sistemática (X)</td><td className="text-right">{n2(it.valor * PERC_SISTEMATICA)}</td></tr>
+                <tr className="font-semibold"><td>= Base de cálculo (Y)</td><td className="text-right">{n2(base)}</td></tr>
+                <tr><td>× alíquota interna {pctTxt(d.aliq)} (Z)</td><td className="text-right">{n2(bcAliq)}</td></tr>
+                <tr><td>− ICMS destacado na nota (U)</td><td className="text-right">{n2(it.icms)}</td></tr>
+                <tr className="font-bold border-t border-[#DDD]"><td>= ICMS antecipado (AA)</td><td className="text-right">{n2(antecipado(it, d))}</td></tr>
+              </tbody>
+            </table>
+            <p className="text-xs mt-2">{d.aliq === ALIQ_PADRAO ? `Alíquota padrão de ${pctTxt(ALIQ_PADRAO)}.` : `Alíquota de ${pctTxt(d.aliq)}: vem do histórico do produto ou é bebida alcoólica (NCM 2204, 2205, 2206 ou 2208).`}</p>
+          </Passo>
+        )}
+      </div>
+    </>
+  );
+}
+
+// ─── guia geral da lógica ────────────────────────────────────────────────────
+function Titulo({ children }: { children: React.ReactNode }) {
+  return <p className="font-semibold text-[#17150F] mt-5 mb-1">{children}</p>;
+}
+function GuiaApuracao() {
+  return (
+    <div className="text-stone-700 space-y-1">
+      <Titulo>1. De onde vêm os itens</Titulo>
+      <p>Da planilha crua do Questor: uma linha por item de nota de entrada (colunas A a S).</p>
+      <Titulo>2. Quais entram (aba ITENS)</Titulo>
+      <p>Só a Natureza 1102 (compra para comercialização, inclusive 1102001) e 1910 (bonificação). Saem as demais, como 1403 (compra com ST), 1556 (uso e consumo), 2102 (outro estado), 1407 e 1949.</p>
+      <Titulo>3. Quais são calculados (aba SISTEMATICA)</Titulo>
+      <p>Para cada item, vale a primeira regra que se aplica:</p>
+      <ol className="list-decimal pl-5 space-y-1">
+        <li><b>Histórico do produto:</b> mesmo código do mesmo fornecedor. Vale a última decisão da analista.</li>
+        <li><b>NCM do fornecedor:</b> produto novo, mas o fornecedor já vendeu esse NCM antes. Vale a última decisão.</li>
+        <li><b>NCM em outros fornecedores:</b> só quando a decisão foi a mesma em pelo menos 80% das vezes.</li>
+        <li><b>Regra do CST:</b> sem histórico, saem os CST com final 40, 41 e 60 (isento, não tributado ou ST). Os demais entram.</li>
+      </ol>
+      <p className="mt-1">Exceção: produto que já entrou antes e veio com CFOP 14xx entra e vai para revisão, porque costuma ser lançamento a corrigir.</p>
+      <Titulo>4. Cálculo</Titulo>
+      <p>ICMS antecipado = Valor total × 1,25 × alíquota interna − ICMS destacado. A alíquota padrão é 20,5%. Bebidas alcoólicas (NCM 2204, 2205, 2206 e 2208) usam 27%. Se o produto tem alíquota no histórico, ela é usada.</p>
+      <Titulo>5. A revisar</Titulo>
+      <p>Entram aqui os itens sem histórico (decididos só pelo CST), os produtos cuja decisão mudou no último mês, os CFOP a conferir e as alíquotas diferentes de 20,5%.</p>
+      <Titulo>6. Ajustes da analista</Titulo>
+      <p>O ✓ inclui ou exclui o produto em todas as notas do mês. Se o produto tem histórico e a mudança contraria a última decisão, o app pede confirmação. Confirmando, a nova regra vale daqui para frente.</p>
+      <Titulo>7. Finalizar</Titulo>
+      <p>Grava as decisões do mês nas regras do cliente, com o e-mail de quem finalizou, e a próxima apuração já parte delas. Nenhuma regra é apagada: cada produto guarda o histórico mês a mês.</p>
+      <Titulo>8. Filtros e passo a passo</Titulo>
+      <p>O funil em cada cabeçalho filtra a coluna, como no Excel. A busca geral procura em fornecedor, produto, NCM, CFOP e CST. Na coluna "Por quê", clique no selo de um item para ver o passo a passo dele.</p>
     </div>
   );
 }
