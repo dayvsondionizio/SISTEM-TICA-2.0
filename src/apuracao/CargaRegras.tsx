@@ -34,7 +34,8 @@ export default function CargaRegras() {
   }, [clientes]);
 
   function sugerir(pasta: string) {
-    const base = norm(pasta.split(' - ')[0]);
+    const [empresa, unidade] = pasta.split(' / ');
+    const base = norm(`${empresa.split(' - ')[0]}${unidade ? ` ${unidade}` : ''}`);
     const exato = clientes.find(c => norm(c.nome) === base);
     if (exato) return exato.id;
     const parcial = clientes.filter(c => norm(c.nome).startsWith(base) || base.startsWith(norm(c.nome)));
@@ -47,7 +48,9 @@ export default function CargaRegras() {
     [...files].forEach(f => {
       const partes = (f.webkitRelativePath || f.name).split('/');
       if (partes.length < 3 || !f.name.toLowerCase().endsWith('.xlsx') || f.name.startsWith('~$')) return;
-      const pasta = partes[1];
+      // empresa com matriz e filial: …/EMPRESA/MATRIZ/MÊS/arquivo → cada unidade vira um grupo próprio
+      const sub = partes.length >= 5 ? partes[2] : '';
+      const pasta = /^(MATRIZ|FILIAL)/i.test(norm(sub)) ? `${partes[1]} / ${sub}` : partes[1];
       mapa.set(pasta, [...(mapa.get(pasta) ?? []), f]);
     });
     const gs: Grupo[] = [...mapa.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([pasta, arquivos]) => {
