@@ -497,16 +497,12 @@ export default function ApuracaoApp({ clienteId, clienteNome, onVoltar, simulaca
                             ))}
                             {aba === 'revisar' && (
                               <td className="border border-[#E1E1E1] px-2 py-1 bg-[#FFFDF6] min-w-[340px] max-w-[460px] whitespace-normal">
-                                <p className="text-[11px] text-[#5E4B0C] leading-snug">{destacar(motivoRevisao(it, d) ?? '')}</p>
+                                <p className="text-[11px] text-stone-700 leading-snug"><Selo incluido={d.incluir} /> {destacar(motivoRevisao(it, d) ?? '')}</p>
                                 <div className="flex gap-1.5 mt-1">
-                                  <button onClick={() => aplicar(it, d.incluir, d.aliq, true)}
-                                    className="text-[10px] font-semibold px-2 py-0.5 rounded bg-[#217346] text-white hover:bg-[#1a5c38]">
-                                    Está certo: manter <Selo incluido={d.incluir} claro />
-                                  </button>
-                                  <button onClick={() => alternar(it)}
-                                    className="text-[10px] font-semibold px-2 py-0.5 rounded border border-[#C8C8C8] bg-white hover:border-stone-500">
-                                    Trocar para <Selo incluido={!d.incluir} />
-                                  </button>
+                                  <button onClick={() => aplicar(it, d.incluir, d.aliq, true)} title={`Confirma: continua ${d.incluir ? 'incluído' : 'excluído'}`}
+                                    className="text-[10px] font-semibold px-2.5 py-0.5 rounded bg-[#17150F] text-white hover:bg-black">Manter</button>
+                                  <button onClick={() => alternar(it)} title={`Passa a ficar ${d.incluir ? 'excluído' : 'incluído'}`}
+                                    className="text-[10px] font-semibold px-2.5 py-0.5 rounded border border-[#C8C8C8] bg-white text-stone-700 hover:border-stone-500">Trocar</button>
                                 </div>
                               </td>
                             )}
@@ -611,16 +607,17 @@ export default function ApuracaoApp({ clienteId, clienteNome, onVoltar, simulaca
 }
 
 // ─── destaque visual de incluído / excluído ──────────────────────────────────
-function Selo({ incluido, claro }: { incluido: boolean; claro?: boolean; key?: React.Key }) {
-  const cor = incluido
-    ? (claro ? 'bg-white text-[#217346]' : 'bg-[#217346] text-white')
-    : (claro ? 'bg-white text-[#B42318]' : 'bg-[#B42318] text-white');
-  return <span className={`inline-block px-1.5 rounded font-black uppercase tracking-wide text-[9.5px] ${cor}`}>{incluido ? 'Incluído' : 'Excluído'}</span>;
+function Selo({ incluido }: { incluido: boolean }) {
+  return (
+    <span className="inline-flex items-center gap-1 bg-[#F1F0EC] border border-[#E2DFD6] rounded px-1.5 py-px mr-1 align-middle text-[9.5px] font-bold tracking-wide text-[#17150F] whitespace-nowrap">
+      <span className={`w-1.5 h-1.5 rounded-full ${incluido ? 'bg-[#217346]' : 'bg-[#B42318]'}`} />HOJE: {incluido ? 'INCLUÍDO' : 'EXCLUÍDO'}
+    </span>
+  );
 }
-/** Troca as palavras incluído/excluído do texto por selos coloridos. */
+/** No texto, incluído/excluído só em itálico (a cor fica apenas no selo da decisão atual). */
 function destacar(texto: string): React.ReactNode {
   return texto.split(/(incluído|excluído)/g).map((parte, i) =>
-    parte === 'incluído' ? <Selo key={i} incluido /> : parte === 'excluído' ? <Selo key={i} incluido={false} /> : parte);
+    parte === 'incluído' || parte === 'excluído' ? <em key={i} className="italic font-semibold">{parte}</em> : parte);
 }
 
 // ─── filtro por coluna (como o autofiltro do Excel) ──────────────────────────
