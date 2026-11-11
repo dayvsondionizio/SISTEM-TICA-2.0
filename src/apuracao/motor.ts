@@ -221,6 +221,24 @@ export function aprender(mem: Memoria, itens: Item[], decisao: (it: Item) => { i
 export const antecipado = (it: Item, d: Decisao) => (d.incluir ? it.valor * (1 + PERC_SISTEMATICA) * (d.aliq / 100) - it.icms : 0);
 
 // ─── exportação no layout da analista ────────────────────────────────────────
+/** Largura de cada coluna pelo maior texto (como o "autoajuste" do Excel), com mínimo e máximo. */
+function ajustarLarguras(ws: XLSX.WorkSheet, minimo = 8, maximo = 60) {
+  if (!ws['!ref']) return;
+  const r = XLSX.utils.decode_range(ws['!ref']);
+  const cols: { wch: number }[] = [];
+  for (let c = r.s.c; c <= r.e.c; c++) {
+    let w = minimo;
+    for (let l = r.s.r; l <= r.e.r; l++) {
+      const cel = ws[XLSX.utils.encode_cell({ r: l, c })];
+      if (!cel) continue;
+      const t = cel.f ? 14 : typeof cel.v === 'number' ? cel.v.toLocaleString('pt-BR', { maximumFractionDigits: 2 }).length + 2 : String(cel.v ?? '').length + 2;
+      if (t > w) w = t;
+    }
+    cols.push({ wch: Math.min(w, maximo) });
+  }
+  ws['!cols'] = cols;
+}
+
 export function exportarExcel(nomeArquivo: string, cabecalho: unknown[], itens: Item[], dec: Map<number, Decisao>) {
   const wb = XLSX.utils.book_new();
   const cab = cabecalho.slice(0, 19);
@@ -249,5 +267,6 @@ export function exportarExcel(nomeArquivo: string, cabecalho: unknown[], itens: 
   });
   sist['!ref'] = `A1:AA${incl.length + 1}`;
   XLSX.utils.book_append_sheet(wb, sist, 'SISTEMATICA');
+  wb.SheetNames.forEach(n => ajustarLarguras(wb.Sheets[n]));
   XLSX.writeFile(wb, nomeArquivo.endsWith('.xlsx') ? nomeArquivo : `${nomeArquivo}.xlsx`);
 }
