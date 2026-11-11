@@ -14,14 +14,6 @@ export interface Decisao {
   incluir: boolean; origem: Origem; motivo: string;
   aliq: number; credSn: number; conflito?: boolean;
 }
-interface Contagem { inc: number; exc: number; ultima: boolean; ultimoMes: string; aliq?: Record<string, number> }
-export interface Memoria {
-  produtos: Record<string, Contagem>;
-  ncmForn: Record<string, Contagem>;
-  ncm: Record<string, Contagem>;
-  meses: string[];
-}
-export const memoriaVazia = (): Memoria => ({ produtos: {}, ncmForn: {}, ncm: {}, meses: [] });
 
 // ─── leitura ─────────────────────────────────────────────────────────────────
 const txt = (v: unknown) => (v === null || v === undefined ? '' : String(v).trim());
@@ -77,7 +69,14 @@ export async function lerArquivo(file: File): Promise<ArquivoLido> {
     throw new Error('A primeira aba não está no layout do Questor (esperado: Natureza na coluna K e Valor Total na coluna O).');
   }
   const itens = paraItens(crua.slice(1));
-  const out: ArquivoLido = { nome: file.name, mes: mesDoNome(file.name), itens, cabecalho };
+  // mês pelo nome do arquivo; se não houver, pelo mês mais frequente da Data Entrada
+  let mes = mesDoNome(file.name);
+  if (!mes) {
+    const cont = new Map<string, number>();
+    itens.forEach(i => { const m = i.data.match(/^\d{2}\/(\d{2})\/(\d{4})/); if (m) cont.set(`${m[1]}/${m[2]}`, (cont.get(`${m[1]}/${m[2]}`) ?? 0) + 1); });
+    mes = [...cont.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? '';
+  }
+  const out: ArquivoLido = { nome: file.name, mes, itens, cabecalho };
 
   const abaSist = wb.SheetNames.find(n => n.toUpperCase().startsWith('SISTEM'));
   if (abaSist) {
@@ -104,67 +103,122 @@ export async function lerArquivo(file: File): Promise<ArquivoLido> {
 }
 
 // ─── regras ──────────────────────────────────────────────────────────────────
+// Regras gerais (valem para todos os clientes).
 export const CFOPS_APURADOS = ['1102', '1910'];
 const CST_FORA = ['40', '41', '60'];
+export const PERC_SISTEMATICA = 0.25;
+export const ALIQ_PADRAO = 20.5;
+const NCM_27 = ['2204', '2205', '2206', '2208'];
 export const cfopApurado = (it: Item) => CFOPS_APURADOS.includes(it.cfop.slice(0, 4));
 const cstFinal = (it: Item) => it.cst.slice(-2).padStart(2, '0');
-const NCM_27 = ['2204', '2205', '2206', '2208'];
+const aliqGeral = (it: Item) => (it.aliqDest >= 27 || NCM_27.includes(it.ncm.replace(/\D/g, '').slice(0, 4)) ? 27 : ALIQ_PADRAO);
 
-const kProd = (it: Item) => `${it.cnpj}|${it.produto}`;
-const kNcmForn = (it: Item) => `${it.cnpj}|${it.ncm}`;
-const kNcm = (it: Item) => it.ncm;
+// Regras de cada cliente: uma por produto do fornecedor, com o histórico de decisões mês a mês.
+/** [mês "MM/AAAA", incluiu (1/0), alíquota interna, confirmada pela analista (1) ou não (0)] */
+export type Passo = [string, 0 | 1, number, 0 | 1];
+export interface RegraProduto { cnpj: string; cod: string; desc: string; ncm: string; tipo: string; h: Passo[] }
+export interface Memoria { produtos: Record<string, RegraProduto>; meses: string[] }
+export const memoriaVazia = (): Memoria => ({ produtos: {}, meses: [] });
 
-function registrar(mapa: Record<string, Contagem>, chave: string, incluir: boolean, mes: string, aliq: number | null) {
-  const c = mapa[chave] ?? (mapa[chave] = { inc: 0, exc: 0, ultima: incluir, ultimoMes: '' });
-  if (incluir) c.inc++; else c.exc++;
-  if (ordemMes(mes) >= ordemMes(c.ultimoMes)) { c.ultima = incluir; c.ultimoMes = mes; }
-  if (incluir && aliq) { c.aliq = c.aliq ?? {}; c.aliq[String(aliq)] = (c.aliq[String(aliq)] ?? 0) + 1; }
+const normDesc = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/\s+/g, ' ').trim();
+const kProd = (cnpj: string, cod: string) => `${cnpj}|${cod}`;
+const ultimo = (r: RegraProduto) => r.h[r.h.length - 1];
+
+interface Agregado { inc: number; exc: number; ultima: boolean; ultimoMes: string; aliq: number | null }
+export interface Indice {
+  porCodigo: Map<string, RegraProduto>;
+  porDescricao: Map<string, RegraProduto>;
+  ncmForn: Map<string, Agregado>;
+  ncm: Map<string, Agregado>;
+}
+/** Monta os atalhos de busca a partir das regras por produto (NCM do fornecedor e NCM do cliente são derivados). */
+export function indexar(mem: Memoria): Indice {
+  const idx: Indice = { porCodigo: new Map(), porDescricao: new Map(), ncmForn: new Map(), ncm: new Map() };
+  const soma = (m: Map<string, Agregado>, k: string, r: RegraProduto) => {
+    const u = ultimo(r); if (!u) return;
+    const a = m.get(k) ?? { inc: 0, exc: 0, ultima: !!u[1], ultimoMes: '', aliq: null };
+    r.h.forEach(p => { if (p[1]) a.inc++; else a.exc++; });
+    if (ordemMes(u[0]) >= ordemMes(a.ultimoMes)) { a.ultima = !!u[1]; a.ultimoMes = u[0]; if (u[1]) a.aliq = u[2]; }
+    m.set(k, a);
+  };
+  Object.values(mem.produtos).forEach(r => {
+    idx.porCodigo.set(kProd(r.cnpj, r.cod), r);
+    if (r.desc) idx.porDescricao.set(`${r.cnpj}|${r.desc}`, r);
+    soma(idx.ncmForn, `${r.cnpj}|${r.ncm}`, r);
+    soma(idx.ncm, r.ncm, r);
+  });
+  return idx;
 }
 
-/** Grava na memória as decisões de uma apuração (da analista ou finalizada no app). */
-export function aprender(mem: Memoria, itens: Item[], decisao: (it: Item) => { incluir: boolean; aliq: number | null }, mes: string) {
-  const m: Memoria = JSON.parse(JSON.stringify(mem));
-  itens.filter(cfopApurado).forEach(it => {
+/** Texto curto do histórico de um produto, para o motivo e para a confirmação. */
+export function resumoHistorico(r: RegraProduto) {
+  const inc = r.h.filter(p => p[1]).length, exc = r.h.length - inc, u = ultimo(r);
+  const ult = u ? `${u[1] ? `incluído a ${String(u[2]).replace('.', ',')}%` : 'excluído'} em ${u[0]}` : '—';
+  return { inc, exc, ultimoTexto: ult, texto: `${inc}× incluído, ${exc}× excluído · último: ${ult}` };
+}
+
+export function regraDoItem(it: Item, idx: Indice): RegraProduto | undefined {
+  // Só pelo código: casar pela descrição puxava decisões de códigos antigos e piorou o acerto nos testes.
+  return idx.porCodigo.get(kProd(it.cnpj, it.produto));
+}
+
+export function decidir(it: Item, idx: Indice): Decisao {
+  const rp = regraDoItem(it, idx);
+  const anf = idx.ncmForn.get(`${it.cnpj}|${it.ncm}`), an = idx.ncm.get(it.ncm);
+  const u = rp ? ultimo(rp) : undefined;
+  const aliq = (u && u[1] ? u[2] : null) ?? anf?.aliq ?? an?.aliq ?? aliqGeral(it);
+  const base = { aliq, credSn: 0 };
+  // decisão mais recente diferente da anterior e não confirmada pela analista → revisar
+  const mudou = !!rp && rp.h.length > 1 && !!u && !u[3] && rp.h[rp.h.length - 2][1] !== u[1];
+
+  if (!cfopApurado(it)) {
+    // Produto já apurado antes que veio do Questor com outro CFOP de entrada (ex.: 1403): costuma ser lançamento a corrigir.
+    if (u?.[1] && it.cfop.startsWith('14')) return { ...base, incluir: true, origem: 'produto', conflito: true,
+      motivo: `CFOP ${it.cfop} no Questor, mas este produto entrou na apuração antes (${resumoHistorico(rp!).texto}). Conferir o lançamento.` };
+    return { ...base, incluir: false, origem: 'cfop', motivo: `CFOP ${it.cfop} fora da apuração` };
+  }
+  if (rp && u) {
+    return { ...base, incluir: !!u[1], origem: 'produto', conflito: mudou,
+      motivo: `Histórico do produto: ${resumoHistorico(rp).texto}${mudou ? '. A decisão mudou no último mês.' : ''}` };
+  }
+  const desc = (a: Agregado) => `${a.inc}× incluído, ${a.exc}× excluído (último: ${a.ultimoMes || '—'})`;
+  if (anf) return { ...base, incluir: anf.ultima, origem: 'ncm-fornecedor', motivo: `Mesmo NCM deste fornecedor: ${desc(anf)}`, conflito: anf.inc > 0 && anf.exc > 0 };
+  if (an && Math.max(an.inc, an.exc) / (an.inc + an.exc) >= 0.8)
+    return { ...base, incluir: an.inc >= an.exc, origem: 'ncm', motivo: `NCM ${it.ncm} em outros fornecedores: ${desc(an)}` };
+  const fora = CST_FORA.includes(cstFinal(it));
+  return { ...base, incluir: !fora, origem: 'cst', motivo: fora ? `CST ${it.cst} (isento, não tributado ou ST)` : `CST ${it.cst} tributado — sem histórico` };
+}
+
+/**
+ * Grava na memória as decisões de um mês (planilha da analista ou apuração finalizada no app).
+ * Cada produto ganha um passo no histórico; se o mês já existia, é substituído.
+ */
+export function aprender(mem: Memoria, itens: Item[], decisao: (it: Item) => { incluir: boolean; aliq: number | null; confirmado?: boolean }, mes: string): Memoria {
+  const m: Memoria = { produtos: { ...mem.produtos }, meses: [...mem.meses] };
+  const porProduto = new Map<string, { it: Item; inc: number; exc: number; aliq: number | null; conf: boolean }>();
+  itens.forEach(it => {
     const d = decisao(it);
-    registrar(m.produtos, kProd(it), d.incluir, mes, d.aliq);
-    registrar(m.ncmForn, kNcmForn(it), d.incluir, mes, d.aliq);
-    registrar(m.ncm, kNcm(it), d.incluir, mes, d.aliq);
+    if (!cfopApurado(it) && !d.incluir) return;
+    const k = kProd(it.cnpj, it.produto);
+    const a = porProduto.get(k) ?? { it, inc: 0, exc: 0, aliq: null, conf: false };
+    if (d.incluir) { a.inc++; if (d.aliq) a.aliq = d.aliq; } else a.exc++;
+    if (d.confirmado) a.conf = true;
+    porProduto.set(k, a);
+  });
+  porProduto.forEach((a, k) => {
+    const ant = m.produtos[k];
+    const r: RegraProduto = ant ? { ...ant, h: ant.h.filter(p => p[0] !== mes) }
+      : { cnpj: a.it.cnpj, cod: a.it.produto, desc: normDesc(a.it.descricao), ncm: a.it.ncm, tipo: a.it.tipo, h: [] };
+    r.ncm = a.it.ncm; r.desc = normDesc(a.it.descricao); r.tipo = a.it.tipo;
+    const incluiu = a.inc >= a.exc;
+    r.h = [...r.h, [mes, incluiu ? 1 : 0, incluiu ? (a.aliq ?? ALIQ_PADRAO) : 0, a.conf ? 1 : 0] as Passo].sort((x, y) => ordemMes(x[0]) - ordemMes(y[0]));
+    m.produtos[k] = r;
   });
   if (mes && !m.meses.includes(mes)) m.meses = [...m.meses, mes].sort((a, b) => ordemMes(a) - ordemMes(b));
   return m;
 }
 
-const aliqMaisUsada = (c?: Contagem) => {
-  if (!c?.aliq) return null;
-  const [a] = Object.entries(c.aliq).sort((x, y) => y[1] - x[1])[0] ?? [];
-  return a ? Number(a) : null;
-};
-
-export function decidir(it: Item, mem: Memoria): Decisao {
-  const cp = mem.produtos[kProd(it)], cnf = mem.ncmForn[kNcmForn(it)], cn = mem.ncm[kNcm(it)];
-  const aliq = aliqMaisUsada(cp) ?? aliqMaisUsada(cnf) ?? aliqMaisUsada(cn)
-    ?? (it.aliqDest >= 27 || NCM_27.includes(it.ncm.replace(/\D/g, '').slice(0, 4)) ? 27 : 20.5);
-  const base = { aliq, credSn: 0 };
-
-  const descreve = (c: Contagem) => `${c.inc}× incluído, ${c.exc}× excluído (último: ${c.ultimoMes || '—'})`;
-  if (!cfopApurado(it)) {
-    // Produto que a analista já apurou antes (lançado como 1102), mas que veio do Questor com outro CFOP de entrada:
-    // costuma ser lançamento a corrigir (ex.: 1403 em fornecedor do Simples). Inclui e manda revisar.
-    if (cp?.ultima && it.cfop.startsWith('14')) return { ...base, incluir: true, origem: 'produto', conflito: true,
-      motivo: `CFOP ${it.cfop} no Questor, mas este produto entrou na apuração antes (${descreve(cp)}). Conferir o lançamento.` };
-    return { ...base, incluir: false, origem: 'cfop', motivo: `CFOP ${it.cfop} fora da apuração` };
-  }
-  if (cp) return { ...base, incluir: cp.ultima, origem: 'produto', motivo: `Mesmo produto do fornecedor: ${descreve(cp)}`, conflito: cp.inc > 0 && cp.exc > 0 };
-  if (cnf) return { ...base, incluir: cnf.ultima, origem: 'ncm-fornecedor', motivo: `Mesmo NCM deste fornecedor: ${descreve(cnf)}`, conflito: cnf.inc > 0 && cnf.exc > 0 };
-  if (cn) {
-    const t = cn.inc + cn.exc, maior = cn.inc >= cn.exc;
-    if (Math.max(cn.inc, cn.exc) / t >= 0.8) return { ...base, incluir: maior, origem: 'ncm', motivo: `NCM ${it.ncm} em outros fornecedores: ${descreve(cn)}` };
-  }
-  const fora = CST_FORA.includes(cstFinal(it));
-  return { ...base, incluir: !fora, origem: 'cst', motivo: fora ? `CST ${it.cst} (isento, não tributado ou ST)` : `CST ${it.cst} tributado — sem histórico` };
-}
-
-export const antecipado = (it: Item, d: Decisao) => (d.incluir ? it.valor * 1.25 * (d.aliq / 100) - it.icms - d.credSn : 0);
+export const antecipado = (it: Item, d: Decisao) => (d.incluir ? it.valor * (1 + PERC_SISTEMATICA) * (d.aliq / 100) - it.icms : 0);
 
 // ─── exportação no layout da analista ────────────────────────────────────────
 export function exportarExcel(nomeArquivo: string, cabecalho: unknown[], itens: Item[], dec: Map<number, Decisao>) {
@@ -190,7 +244,6 @@ export function exportarExcel(nomeArquivo: string, cabecalho: unknown[], itens: 
     const r = idx + 2, d = dec.get(it.id)!;
     const f = (col: string, formula: string) => { sist[`${col}${r}`] = { t: 'n', f: formula }; };
     f('T', `O${r}`); f('U', `S${r}`); f('V', `R${r}`);
-    if (d.credSn) sist[`W${r}`] = { t: 'n', v: d.credSn };
     f('X', `T${r}*25%`); f('Y', `T${r}+X${r}`);
     f('Z', `Y${r}*${String(d.aliq)}%`); f('AA', `Z${r}-U${r}-W${r}`);
   });

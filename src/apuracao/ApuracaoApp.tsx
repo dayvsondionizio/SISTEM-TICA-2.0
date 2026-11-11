@@ -1,18 +1,14 @@
-import React, { useMemo, useRef, useState } from 'react';
-import { Upload, History, Check, X, Download, Save, AlertTriangle, Search, Trash2, RotateCcw, ArrowLeft } from 'lucide-react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Upload, History, Check, X, Download, Save, AlertTriangle, Search, RotateCcw, ArrowLeft, Loader2 } from 'lucide-react';
 import {
-  lerArquivo, decidir, aprender, antecipado, exportarExcel, cfopApurado, memoriaVazia, mesDoNome,
+  lerArquivo, decidir, aprender, antecipado, exportarExcel, cfopApurado, memoriaVazia, indexar, regraDoItem, resumoHistorico, ALIQ_PADRAO,
   type ArquivoLido, type Decisao, type Item, type Memoria, type Origem,
 } from './motor';
-
-// ─── persistência local (protótipo) ──────────────────────────────────────────
-const LS = 'apuracao-prototipo-v1';
-type Banco = Record<string, Memoria>;
-const lerBanco = (): Banco => { try { return JSON.parse(localStorage.getItem(LS) || '{}'); } catch { return {}; } };
-const gravarBanco = (b: Banco) => { try { localStorage.setItem(LS, JSON.stringify(b)); } catch { /* cheio */ } };
+import { carregarRegras, salvarRegras } from './regrasBanco';
 
 const brl = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 const n2 = (v: number) => v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const pctTxt = (v: number) => `${String(v).replace('.', ',')}%`;
 
 const ORIGEM: Record<Origem, { rotulo: string; cor: string }> = {
   cfop: { rotulo: 'CFOP', cor: 'bg-stone-100 text-stone-600' },
@@ -20,35 +16,52 @@ const ORIGEM: Record<Origem, { rotulo: string; cor: string }> = {
   'ncm-fornecedor': { rotulo: 'Histórico · NCM+forn.', cor: 'bg-[#F4EDD3] text-[#7A6110]' },
   ncm: { rotulo: 'Histórico · NCM', cor: 'bg-[#F4EDD3] text-[#7A6110]' },
   cst: { rotulo: 'Regra CST', cor: 'bg-sky-50 text-sky-700' },
-  manual: { rotulo: 'Manual', cor: 'bg-violet-50 text-violet-700' },
+  manual: { rotulo: 'Ajuste da analista', cor: 'bg-violet-50 text-violet-700' },
 };
 
 type Aba = 'crua' | 'itens' | 'icms' | 'sistematica' | 'revisar' | 'divergencias';
+type Ajuste = Partial<Decisao> & { confirmado?: boolean };
+interface Pendente { it: Item; incluir: boolean; aliq: number; antes: string; depois: string; historico: string }
 
-/** Apuração a partir da planilha crua do Questor. As regras aprendidas ficam separadas por cliente. */
+/** Apuração a partir da planilha crua do Questor, com as regras daquele cliente (tabela icms_regras_apuracao). */
 export default function ApuracaoApp({ clienteId, clienteNome, onVoltar }: { clienteId: string; clienteNome: string; onVoltar: () => void }) {
-  const [banco, setBanco] = useState<Banco>(lerBanco);
-  const cliente = `cliente:${clienteId}`;
+  const [mem, setMem] = useState<Memoria>(memoriaVazia());
+  const [estadoRegras, setEstadoRegras] = useState<'carregando' | 'ok' | 'sem-tabela' | 'erro'>('carregando');
+  const [infoRegras, setInfoRegras] = useState('');
   const [arquivo, setArquivo] = useState<ArquivoLido | null>(null);
-  const [manuais, setManuais] = useState<Map<number, Partial<Decisao>>>(new Map());
+  const [mes, setMes] = useState('');
+  const [manuais, setManuais] = useState<Map<number, Ajuste>>(new Map());
+  const [pendente, setPendente] = useState<Pendente | null>(null);
   const [aba, setAba] = useState<Aba>('sistematica');
   const [busca, setBusca] = useState('');
   const [limite, setLimite] = useState(150);
   const [erro, setErro] = useState('');
   const [aviso, setAviso] = useState('');
   const [carregando, setCarregando] = useState('');
-  const inputHist = useRef<HTMLInputElement>(null);
+  const [gravando, setGravando] = useState(false);
   const inputCrua = useRef<HTMLInputElement>(null);
 
-  const mem = banco[cliente] ?? memoriaVazia();
-  const salvarMem = (m: Memoria) => { const b = { ...banco, [cliente]: m }; setBanco(b); gravarBanco(b); };
+  useEffect(() => {
+    let vivo = true;
+    carregarRegras(clienteId)
+      .then(r => {
+        if (!vivo) return;
+        setMem(r.mem);
+        setEstadoRegras(r.tabelaFalta ? 'sem-tabela' : 'ok');
+        if (r.atualizadoEm) setInfoRegras(`Atualizadas em ${new Date(r.atualizadoEm).toLocaleDateString('pt-BR')}${r.atualizadoPor ? ` por ${r.atualizadoPor}` : ''}`);
+      })
+      .catch(e => { if (vivo) { setEstadoRegras('erro'); setErro((e as Error).message); } });
+    return () => { vivo = false; };
+  }, [clienteId]);
+
+  const idx = useMemo(() => indexar(mem), [mem]);
 
   // ── decisões ──
   const automaticas = useMemo(() => {
     const m = new Map<number, Decisao>();
-    arquivo?.itens.forEach(it => m.set(it.id, decidir(it, mem)));
+    arquivo?.itens.forEach(it => m.set(it.id, decidir(it, idx)));
     return m;
-  }, [arquivo, mem]);
+  }, [arquivo, idx]);
   const decisoes = useMemo(() => {
     const m = new Map<number, Decisao>();
     automaticas.forEach((d, id) => { const o = manuais.get(id); m.set(id, o ? { ...d, ...o } : d); });
@@ -79,7 +92,7 @@ export default function ApuracaoApp({ clienteId, clienteNome, onVoltar }: { clie
   }, [ana, itens, decisoes]);
 
   const precisaRevisar = (it: Item, d: Decisao) =>
-    !!d.conflito || (cfopApurado(it) && (d.origem === 'cst' || (d.incluir && d.aliq !== 20.5)));
+    !!d.conflito || (cfopApurado(it) && (d.origem === 'cst' || (d.incluir && d.aliq !== ALIQ_PADRAO)));
 
   const listas = useMemo(() => ({
     crua: itens,
@@ -134,10 +147,7 @@ export default function ApuracaoApp({ clienteId, clienteNome, onVoltar }: { clie
       { letra: 'T', titulo: 'VALOR TOTAL LIQUIDO', dir: true, calc: true, celula: (it, d) => so(d, n2(it.valor)) },
       { letra: 'U', titulo: 'VALOR DO ICMS DESC', dir: true, calc: true, celula: (it, d) => so(d, n2(it.icms)) },
       { letra: 'V', titulo: 'ALIQ ICMS', dir: true, calc: true, celula: (it, d) => so(d, n2(it.aliqDest)) },
-      { letra: 'W', titulo: 'CRED SIMPLES NACIONAL', dir: true, calc: true, celula: (it, d) => so(d, it.tipo.toUpperCase().includes('SIMPLES')
-        ? <input type="number" step="0.01" value={d.credSn || ''} placeholder="0,00" onChange={e => mudarCred(it, Number(e.target.value) || 0)}
-            className="w-20 border border-[#C8C8C8] rounded px-1 text-[11px] text-right bg-white" />
-        : '') },
+      { letra: 'W', titulo: 'CRED SIMPLES NACIONAL', dir: true, calc: true, celula: () => '' },
       { letra: 'X', titulo: 'PERC SISTEMATICA 25%', dir: true, calc: true, celula: (it, d) => so(d, n2(it.valor * 0.25)) },
       { letra: 'Y', titulo: 'BASE DE CALC SISTEMATICA', dir: true, calc: true, celula: (it, d) => so(d, n2(it.valor * 1.25)) },
       { letra: 'Z', titulo: 'BC SISTEMATICA * ALIQ INTERNA', dir: true, calc: true, celula: (it, d) => so(d, <span className="inline-flex items-center gap-1.5">
@@ -147,63 +157,61 @@ export default function ApuracaoApp({ clienteId, clienteNome, onVoltar }: { clie
           </select>{n2(it.valor * 1.25 * d.aliq / 100)}</span>) },
       { letra: 'AA', titulo: 'VALOR DO ICMS ANTECIPADO', dir: true, calc: true, celula: (it, d) => so(d, <b>{n2(antecipado(it, d))}</b>) },
     ];
-  }, [aba, manuais, itens]);
+  }, [aba, manuais, itens, idx]);
 
   // ── ações ──
-  const alternar = (it: Item) => {
-    const atual = decisoes.get(it.id)!;
-    const novo = !atual.incluir;
-    const m = new Map<number, Partial<Decisao>>(manuais);
-    // o mesmo produto do mesmo fornecedor muda junto nesta apuração
-    itens.filter(o => o.cnpj === it.cnpj && o.produto === it.produto && cfopApurado(o) === cfopApurado(it))
-      .forEach(o => m.set(o.id, { ...(m.get(o.id) ?? {}), incluir: novo, origem: 'manual', motivo: novo ? 'Incluído manualmente' : 'Excluído manualmente' }));
-    setManuais(m);
-  };
-  const mudarAliq = (it: Item, aliq: number) => {
-    const m = new Map<number, Partial<Decisao>>(manuais);
-    itens.filter(o => o.cnpj === it.cnpj && o.produto === it.produto).forEach(o => m.set(o.id, { ...(m.get(o.id) ?? {}), aliq }));
-    setManuais(m);
-  };
-  const mudarCred = (it: Item, credSn: number) => { const m = new Map<number, Partial<Decisao>>(manuais); m.set(it.id, { ...(m.get(it.id) ?? {}), credSn }); setManuais(m); };
+  const mesmoProduto = (o: Item, it: Item) => o.cnpj === it.cnpj && o.produto === it.produto;
 
-  async function importarHistorico(files: FileList | null) {
-    if (!files?.length || !cliente) return;
-    setErro(''); setAviso('');
-    const lista = [...files].sort((a, b) => {
-      const o = (n: string) => { const [m, y] = (mesDoNome(n) || '00/0000').split('/').map(Number); return y * 100 + m; };
-      return o(a.name) - o(b.name);
-    });
-    let m = mem; const ok: string[] = [], falhas: string[] = [];
-    for (const f of lista) {
-      setCarregando(`Lendo ${f.name}…`);
-      try {
-        const a = await lerArquivo(f);
-        if (!a.analista) { falhas.push(`${f.name} (sem aba SISTEMATICA)`); continue; }
-        m = aprender(m, a.itens, it => a.analista!.decisoes.get(it.id)!, a.mes || f.name);
-        ok.push(a.mes || f.name);
-      } catch (e) { falhas.push(`${f.name} (${(e as Error).message})`); }
-    }
-    setCarregando('');
-    salvarMem(m);
-    setAviso(`Histórico atualizado com ${ok.length} apuração(ões)${falhas.length ? `. Não lidas: ${falhas.join('; ')}` : '.'}`);
+  /** Aplica a mudança no produto inteiro (todas as notas do mês). */
+  function aplicar(it: Item, incluir: boolean, aliq: number, confirmado: boolean) {
+    const m = new Map<number, Ajuste>(manuais);
+    itens.filter(o => mesmoProduto(o, it)).forEach(o => m.set(o.id, {
+      ...(m.get(o.id) ?? {}), incluir, aliq, origem: 'manual', confirmado: confirmado || m.get(o.id)?.confirmado,
+      motivo: confirmado ? 'Mudança confirmada pela analista: vale daqui para frente' : (incluir ? 'Incluído pela analista' : 'Excluído pela analista'),
+      conflito: false,
+    }));
+    setManuais(m);
   }
+  /** Se o produto tem histórico e a mudança contraria a última decisão, pede confirmação antes. */
+  function mudar(it: Item, incluir: boolean, aliq: number) {
+    const rp = regraDoItem(it, idx);
+    const u = rp?.h[rp.h.length - 1];
+    const descr = (inc: boolean, a: number) => (inc ? `incluído a ${pctTxt(a)}` : 'excluído');
+    if (rp && u && (!!u[1] !== incluir || (incluir && !!u[1] && u[2] !== aliq))) {
+      setPendente({ it, incluir, aliq, antes: descr(!!u[1], u[2]), depois: descr(incluir, aliq), historico: resumoHistorico(rp).texto });
+      return;
+    }
+    aplicar(it, incluir, aliq, false);
+  }
+  const alternar = (it: Item) => { const d = decisoes.get(it.id)!; mudar(it, !d.incluir, d.aliq); };
+  const mudarAliq = (it: Item, aliq: number) => mudar(it, true, aliq);
 
   async function abrirCrua(file: File | undefined) {
     if (!file) return;
     setErro(''); setAviso(''); setCarregando(`Lendo ${file.name}…`);
     try {
       const a = await lerArquivo(file);
-      if (a.mes && mem.meses.includes(a.mes)) setAviso(`Atenção: ${a.mes} já está no histórico deste cliente. Como o app já conhece as decisões deste mês, o resultado tende a sair igual ao da analista.`);
-      setArquivo(a); setManuais(new Map()); setAba(a.analista ? 'divergencias' : 'sistematica'); setLimite(150);
+      setArquivo(a); setMes(a.mes); setManuais(new Map()); setAba(a.analista ? 'divergencias' : 'sistematica'); setLimite(150);
+      if (a.mes && mem.meses.includes(a.mes)) setAviso(`${a.mes} já foi finalizado antes para ${clienteNome}. Ao finalizar de novo, as decisões deste mês serão substituídas.`);
     } catch (e) { setErro((e as Error).message); }
     setCarregando('');
   }
 
-  function salvarNoHistorico() {
+  async function finalizar() {
     if (!arquivo) return;
-    const mes = arquivo.mes || arquivo.nome;
-    salvarMem(aprender(mem, arquivo.itens, it => { const d = decisoes.get(it.id)!; return { incluir: d.incluir, aliq: d.aliq }; }, mes));
-    setAviso(`Decisões de ${mes} gravadas no histórico de ${clienteNome}. A próxima apuração já parte delas.`);
+    if (!/^\d{2}\/\d{4}$/.test(mes)) { setErro('Informe o mês da apuração no formato MM/AAAA.'); return; }
+    if (mem.meses.includes(mes) && !confirm(`${mes} já está gravado para ${clienteNome}. Substituir as decisões deste mês?`)) return;
+    setErro(''); setGravando(true);
+    try {
+      const nova = aprender(mem, arquivo.itens, it => {
+        const d = decisoes.get(it.id)!; return { incluir: d.incluir, aliq: d.aliq, confirmado: !!manuais.get(it.id)?.confirmado };
+      }, mes);
+      await salvarRegras(clienteId, nova);
+      setMem(nova); setManuais(new Map()); setEstadoRegras('ok');
+      setInfoRegras(`Atualizadas agora`);
+      setAviso(`Apuração de ${mes} finalizada. As decisões foram gravadas nas regras de ${clienteNome} e a próxima apuração já parte delas.`);
+    } catch (e) { setErro((e as Error).message); }
+    setGravando(false);
   }
 
   const qtdProdutos = Object.keys(mem.produtos).length;
@@ -219,36 +227,21 @@ export default function ApuracaoApp({ clienteId, clienteNome, onVoltar }: { clie
             <p className="text-[10px] uppercase tracking-[0.2em] text-[#C9A227] font-semibold">Apuração da Sistemática · em teste</p>
             <h1 className="font-display text-2xl">{clienteNome}</h1>
           </div>
-          <p className="ml-auto text-xs text-white/60 max-w-sm text-right">As regras aprendidas ficam neste navegador e valem só para este cliente. Nada é gravado no Supabase.</p>
         </div>
       </header>
 
       <main className="max-w-[1400px] mx-auto px-6 py-6 space-y-5">
-        {/* cliente + histórico */}
-        <section>
-          <div className="bg-white border border-[#E7E2D6] rounded-xl p-4">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-[11px] uppercase tracking-wider text-stone-500 font-semibold mb-1 flex items-center gap-1.5"><History className="w-3.5 h-3.5" />Histórico de regras</p>
-                {cliente ? (
-                  <p className="text-sm">
-                    {mem.meses.length ? <><b>{mem.meses.length}</b> mês(es) aprendidos ({mem.meses.join(', ')}) · <b>{qtdProdutos.toLocaleString('pt-BR')}</b> produtos conhecidos</>
-                      : <span className="text-stone-500">Nenhum mês aprendido ainda. Importe as apurações já feitas pela analista.</span>}
-                  </p>
-                ) : <p className="text-sm text-stone-500">Crie ou selecione um cliente.</p>}
-              </div>
-              <div className="flex gap-2 shrink-0">
-                <button disabled={!cliente} onClick={() => inputHist.current?.click()}
-                  className="flex items-center gap-1.5 border border-[#C9A227] text-[#7A6110] text-xs font-semibold px-3 py-2 rounded-lg hover:bg-[#F4EDD3] disabled:opacity-30">
-                  <Upload className="w-3.5 h-3.5" />Importar apurações feitas
-                </button>
-                {mem.meses.length > 0 && (
-                  <button onClick={() => { if (confirm(`Apagar o histórico de ${clienteNome} neste navegador?`)) salvarMem(memoriaVazia()); }}
-                    className="text-stone-400 hover:text-red-600 px-2" title="Limpar histórico"><Trash2 className="w-4 h-4" /></button>
-                )}
-              </div>
-            </div>
-            <input ref={inputHist} type="file" accept=".xlsx" multiple hidden onChange={e => { importarHistorico(e.target.files); e.target.value = ''; }} />
+        {/* regras do cliente */}
+        <section className="bg-white border border-[#E7E2D6] rounded-xl p-4 flex items-center gap-3">
+          <History className="w-4 h-4 text-[#9A7B12] shrink-0" />
+          <div className="text-sm">
+            <p className="text-[11px] uppercase tracking-wider text-stone-500 font-semibold">Regras deste cliente</p>
+            {estadoRegras === 'carregando' && <p className="text-stone-500 flex items-center gap-1.5"><Loader2 className="w-3.5 h-3.5 animate-spin" />Carregando do banco…</p>}
+            {estadoRegras === 'sem-tabela' && <p className="text-[#9A7B12]">A tabela de regras ainda não foi criada no Supabase. A apuração funciona só com as regras gerais (CFOP e CST) e não dá para finalizar.</p>}
+            {estadoRegras === 'erro' && <p className="text-red-600">Não foi possível carregar as regras.</p>}
+            {estadoRegras === 'ok' && (mem.meses.length
+              ? <p><b>{qtdProdutos.toLocaleString('pt-BR')}</b> produtos conhecidos · {mem.meses.length} mês(es): {mem.meses.join(', ')}{infoRegras && <span className="text-stone-400"> · {infoRegras}</span>}</p>
+              : <p className="text-stone-500">Ainda sem histórico. A primeira apuração sai pelas regras gerais (CFOP e CST) e, ao finalizar, vira a base das próximas.</p>)}
           </div>
         </section>
 
@@ -259,16 +252,41 @@ export default function ApuracaoApp({ clienteId, clienteNome, onVoltar }: { clie
         )}
 
         {/* anexar planilha */}
-        {(
-          <div onDragOver={e => e.preventDefault()} onDrop={e => { e.preventDefault(); abrirCrua(e.dataTransfer.files[0]); }}
-            onClick={() => inputCrua.current?.click()}
-            className="border-2 border-dashed border-[#D9CFAF] rounded-xl bg-white hover:bg-[#FBF7EA] cursor-pointer px-6 py-5 flex items-center gap-4">
-            <Upload className="w-6 h-6 text-[#9A7B12]" />
-            <div>
-              <p className="font-semibold text-sm">{arquivo ? `${arquivo.nome} — trocar planilha` : 'Anexar a planilha crua do Questor'}</p>
-              <p className="text-xs text-stone-500">Arraste ou clique. Se anexar uma apuração já feita pela analista, o app compara o resultado com o dela.</p>
+        <div onDragOver={e => e.preventDefault()} onDrop={e => { e.preventDefault(); abrirCrua(e.dataTransfer.files[0]); }}
+          onClick={() => inputCrua.current?.click()}
+          className="border-2 border-dashed border-[#D9CFAF] rounded-xl bg-white hover:bg-[#FBF7EA] cursor-pointer px-6 py-5 flex items-center gap-4">
+          <Upload className="w-6 h-6 text-[#9A7B12]" />
+          <div className="flex-1">
+            <p className="font-semibold text-sm">{arquivo ? `${arquivo.nome} — trocar planilha` : 'Anexar a planilha crua do Questor'}</p>
+            <p className="text-xs text-stone-500">Arraste ou clique. Se anexar uma apuração já feita pela analista, o app compara o resultado com o dela.</p>
+          </div>
+          {arquivo && (
+            <label onClick={e => e.stopPropagation()} className="text-xs text-stone-600 flex items-center gap-2">
+              Mês da apuração
+              <input value={mes} onChange={e => setMes(e.target.value)} placeholder="MM/AAAA"
+                className={`w-24 border rounded px-2 py-1 text-sm ${/^\d{2}\/\d{4}$/.test(mes) ? 'border-[#E7E2D6]' : 'border-red-300 bg-red-50'}`} />
+            </label>
+          )}
+          <input ref={inputCrua} type="file" accept=".xlsx" hidden onChange={e => { abrirCrua(e.target.files?.[0]); e.target.value = ''; }} />
+        </div>
+
+        {pendente && (
+          <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={() => setPendente(null)}>
+            <div className="bg-white rounded-xl max-w-lg w-full p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
+              <p className="text-[11px] uppercase tracking-wider text-[#9A7B12] font-semibold flex items-center gap-1.5"><AlertTriangle className="w-3.5 h-3.5" />Mudança na regra do produto</p>
+              <p className="font-display text-xl mt-2">{pendente.it.descricao}</p>
+              <p className="text-xs text-stone-500 mt-0.5">{pendente.it.razao} · cód. {pendente.it.produto} · NCM {pendente.it.ncm}</p>
+              <div className="mt-4 text-sm space-y-1.5">
+                <p>No histórico, este produto vinha <b>{pendente.antes}</b>.</p>
+                <p className="text-xs text-stone-500">{pendente.historico}</p>
+                <p className="pt-1">Agora ficará <b>{pendente.depois}</b>. Confirmando, ao finalizar esta apuração a nova regra passa a valer daqui para frente.</p>
+              </div>
+              <div className="flex justify-end gap-2 mt-6">
+                <button onClick={() => setPendente(null)} className="text-xs font-semibold px-4 py-2 rounded-lg border border-[#E7E2D6] hover:bg-stone-50">Cancelar</button>
+                <button onClick={() => { aplicar(pendente.it, pendente.incluir, pendente.aliq, true); setPendente(null); }}
+                  className="text-xs font-semibold px-4 py-2 rounded-lg bg-[#17150F] text-white hover:bg-black">Confirmar mudança</button>
+              </div>
             </div>
-            <input ref={inputCrua} type="file" accept=".xlsx" hidden onChange={e => { abrirCrua(e.target.files?.[0]); e.target.value = ''; }} />
           </div>
         )}
 
@@ -414,13 +432,14 @@ export default function ApuracaoApp({ clienteId, clienteNome, onVoltar }: { clie
 
             {/* rodapé de ações */}
             <section className="flex flex-wrap items-center justify-end gap-2">
-              <button onClick={() => exportarExcel(`${clienteNome} ${(arquivo.mes || '').replace('/', '-')} APP.xlsx`, arquivo.cabecalho, itens, decisoes)}
+              <button onClick={() => exportarExcel(`${clienteNome} ${mes.replace('/', '-')}.xlsx`, arquivo.cabecalho, itens, decisoes)}
                 className="flex items-center gap-1.5 border border-[#17150F] text-xs font-semibold px-4 py-2.5 rounded-lg hover:bg-stone-50">
                 <Download className="w-4 h-4" />Baixar Excel no layout da analista
               </button>
-              <button onClick={salvarNoHistorico} disabled={!cliente} title={cliente ? '' : 'Crie ou selecione um cliente para gravar o histórico'}
+              <button onClick={finalizar} disabled={gravando || estadoRegras !== 'ok'}
+                title={estadoRegras === 'ok' ? 'Grava as decisões deste mês nas regras do cliente' : 'As regras do banco não estão disponíveis'}
                 className="flex items-center gap-1.5 bg-[#17150F] text-white text-xs font-semibold px-4 py-2.5 rounded-lg hover:bg-black disabled:opacity-30">
-                <Save className="w-4 h-4" />Finalizar e gravar decisões no histórico
+                {gravando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}Finalizar apuração
               </button>
             </section>
           </>

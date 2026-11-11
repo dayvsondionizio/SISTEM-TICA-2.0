@@ -4,6 +4,7 @@ import App from './App.tsx';
 import './index.css';
 import { AuthProvider, useAuth } from './AuthContext.tsx';
 import LoginPage from './LoginPage.tsx';
+import CargaRegras from './apuracao/CargaRegras';
 
 function Root() {
   const { session, loading } = useAuth();
@@ -16,7 +17,10 @@ function Root() {
     );
   }
 
-  return session ? <App /> : <LoginPage />;
+  if (!session) return <LoginPage />;
+  // Carga única das regras da apuração (endereço sem link no app: /#carga-regras)
+  if (window.location.hash === '#carga-regras') return <CargaRegras />;
+  return <App />;
 }
 
 createRoot(document.getElementById('root')!).render(
