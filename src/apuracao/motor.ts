@@ -289,6 +289,15 @@ function ajustarLarguras(ws: XLSX.WorkSheet, minimo = 8, maximo = 60) {
   ws['!cols'] = cols;
 }
 
+/** Números e fórmulas com duas casas decimais (só a exibição; o valor guardado não muda). */
+function formatarNumeros(ws: XLSX.WorkSheet) {
+  for (const k of Object.keys(ws)) {
+    if (k[0] === '!') continue;
+    const cel = ws[k] as XLSX.CellObject;
+    if (cel && (cel.t === 'n' || cel.f)) cel.z = '#,##0.00';
+  }
+}
+
 export function exportarExcel(nomeArquivo: string, cabecalho: unknown[], itens: Item[], dec: Map<number, Decisao>) {
   const wb = XLSX.utils.book_new();
   const cab = cabecalho.slice(0, 19);
@@ -317,6 +326,6 @@ export function exportarExcel(nomeArquivo: string, cabecalho: unknown[], itens: 
   });
   sist['!ref'] = `A1:AA${incl.length + 1}`;
   XLSX.utils.book_append_sheet(wb, sist, 'SISTEMATICA');
-  wb.SheetNames.forEach(n => ajustarLarguras(wb.Sheets[n]));
+  wb.SheetNames.forEach(n => { formatarNumeros(wb.Sheets[n]); ajustarLarguras(wb.Sheets[n]); });
   XLSX.writeFile(wb, nomeArquivo.endsWith('.xlsx') ? nomeArquivo : `${nomeArquivo}.xlsx`);
 }
