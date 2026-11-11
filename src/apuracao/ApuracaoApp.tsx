@@ -122,8 +122,8 @@ export default function ApuracaoApp({ clienteId, clienteNome, onVoltar, simulaca
     if (d.origem === 'manual') return null;
     const rp = regraDoItem(it, idx);
     const h = rp?.h ?? [];
-    if (d.conflito && d.origem === 'produto' && !cfopApurado(it))
-      return `Veio com CFOP ${it.cfop} no Questor, mas este produto já entrou na apuração antes. Confira o lançamento.`;
+    if (d.conflito && !cfopApurado(it))
+      return `Veio com CFOP ${it.cfop} no Questor (compra com ST), por isso ficou excluído. Mas este produto já entrou na apuração antes com outro CFOP. Se o lançamento estiver errado, use Trocar para incluir.`;
     if (d.conflito && rp?.discorda) return `${rp.discorda} O app seguiu a maioria. Confira.`;
     const notaTxt = d.nota ? (d.nota.igual ? ` A nota deste mês é igual à anterior (${d.nota.agora}).` : ` A nota mudou: antes ${d.nota.antes}, agora ${d.nota.agora}.`) : '';
     if (d.conflito && d.origem === 'produto' && h.length >= 2 && h[h.length - 2][1] !== h[h.length - 1][1] && !h[h.length - 1][3]) {
@@ -684,7 +684,7 @@ function PassoItem({ it, d, historico, temAjuste }: { it: Item; d: Decisao; hist
       <div className="mt-5">
         <Passo n={1} titulo={`Natureza (CFOP) ${it.cfop}`}>
           {cfopApurado(it) ? `É compra para comercialização ou bonificação (${CFOPS_APURADOS.join(' ou ')}), então o item é analisado.`
-            : d.incluir ? 'Não é 1102 nem 1910, mas este produto já entrou na apuração antes. Pode ser lançamento a corrigir no Questor.'
+            : d.incluir ? 'Não é 1102 nem 1910, mas a analista incluiu este item (lançamento a corrigir no Questor).'
             : 'Só entram 1102 (compra para comercialização) e 1910 (bonificação). Outras entradas, como 1403 (compra com ST), 1556 (uso e consumo) e 2102 (outro estado), ficam fora.'}
         </Passo>
         <Passo n={2} titulo="Decisão">
@@ -745,7 +745,7 @@ function GuiaApuracao() {
         <li><b>NCM em outros fornecedores:</b> só quando a decisão foi a mesma em pelo menos 80% das vezes.</li>
         <li><b>Regra do CST:</b> sem histórico, saem os CST com final 40, 41 e 60 (isento, não tributado ou ST). Os demais entram.</li>
       </ol>
-      <p className="mt-1">Exceção: produto que já entrou antes e veio com CFOP 14xx entra e vai para revisão, porque costuma ser lançamento a corrigir.</p>
+      <p className="mt-1">Produto que já entrou antes e veio com CFOP 14xx fica fora, mas vai para revisão: pode ser lançamento a corrigir, e a analista decide se inclui.</p>
       <Titulo>4. Cálculo</Titulo>
       <p>ICMS antecipado = Valor total × 1,25 × alíquota interna − ICMS destacado. A alíquota padrão é 20,5%. Bebidas alcoólicas (NCM 2204, 2205, 2206 e 2208) usam 27%. Se o produto tem alíquota no histórico, ela é usada.</p>
       <Titulo>5. A revisar</Titulo>

@@ -210,9 +210,10 @@ export function decidir(it: Item, idx: Indice): Decisao {
   base.nota = nota;
 
   if (!cfopApurado(it)) {
-    // Produto já apurado antes que veio do Questor com outro CFOP de entrada (ex.: 1403): costuma ser lançamento a corrigir.
-    if (u?.[1] && it.cfop.startsWith('14')) return { ...base, incluir: true, origem: 'produto', conflito: true,
-      motivo: `CFOP ${it.cfop} no Questor, mas este produto entrou na apuração antes (${resumoHistorico(rp!).texto}). Conferir o lançamento.` };
+    // CFOP 14xx (compra com ST) fica fora. Se o produto já entrou na apuração antes, avisa: pode ser lançamento a corrigir,
+    // mas quem inclui é a analista (incluir sozinho errava casos como Pringles 1403 em out/2026).
+    if (u?.[1] && it.cfop.startsWith('14')) return { ...base, incluir: false, origem: 'cfop', conflito: true,
+      motivo: `CFOP ${it.cfop} no Questor: fica fora. Mas este produto já entrou na apuração antes (${resumoHistorico(rp!).texto}).` };
     return { ...base, incluir: false, origem: 'cfop', motivo: `CFOP ${it.cfop} fora da apuração` };
   }
   if (rp && u && rp.discorda) {
