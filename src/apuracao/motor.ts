@@ -127,7 +127,11 @@ export type Passo = [string, 0 | 1, number, 0 | 1, string?, (0 | 1)?, string?];
 export const notaDoItem = (it: Item) => ({ cst: it.cst.slice(-2).padStart(2, '0'), icms: (it.icms > 0 ? 1 : 0) as 0 | 1, cfop: it.cfop.slice(0, 4) });
 export const descreverNota = (cst?: string, icms?: 0 | 1, cfop?: string) =>
   [cst !== undefined ? `CST ${cst}` : '', icms !== undefined ? (icms ? 'com ICMS' : 'sem ICMS') : '', cfop ? `CFOP ${cfop}` : ''].filter(Boolean).join(', ');
-export interface RegraProduto { cnpj: string; cod: string; desc: string; ncm: string; tipo: string; h: Passo[] }
+export interface RegraProduto {
+  cnpj: string; cod: string; desc: string; ncm: string; tipo: string; h: Passo[];
+  /** Só na simulação com regras de várias empresas: de qual empresa veio e se elas discordam. */
+  fonte?: string; fontes?: string[]; porFonte?: Record<string, 0 | 1>; discorda?: string;
+}
 export interface Memoria { produtos: Record<string, RegraProduto>; meses: string[] }
 export const memoriaVazia = (): Memoria => ({ produtos: {}, meses: [] });
 
@@ -139,12 +143,14 @@ interface Agregado { inc: number; exc: number; ultima: boolean; ultimoMes: strin
 export interface Indice {
   porCodigo: Map<string, RegraProduto>;
   porDescricao: Map<string, RegraProduto>;
+  /** 'codigo' = mesma empresa (código do produto no Questor); 'descricao' = simulação com regras de outras empresas. */
+  modo: 'codigo' | 'descricao';
   ncmForn: Map<string, Agregado>;
   ncm: Map<string, Agregado>;
 }
 /** Monta os atalhos de busca a partir das regras por produto (NCM do fornecedor e NCM do cliente são derivados). */
-export function indexar(mem: Memoria): Indice {
-  const idx: Indice = { porCodigo: new Map(), porDescricao: new Map(), ncmForn: new Map(), ncm: new Map() };
+export function indexar(mem: Memoria, modo: 'codigo' | 'descricao' = 'codigo'): Indice {
+  const idx: Indice = { porCodigo: new Map(), porDescricao: new Map(), ncmForn: new Map(), ncm: new Map(), modo };
   const soma = (m: Map<string, Agregado>, k: string, r: RegraProduto) => {
     const u = ultimo(r); if (!u) return;
     const a = m.get(k) ?? { inc: 0, exc: 0, ultima: !!u[1], ultimoMes: '', aliq: null };
@@ -154,7 +160,21 @@ export function indexar(mem: Memoria): Indice {
   };
   Object.values(mem.produtos).forEach(r => {
     idx.porCodigo.set(kProd(r.cnpj, r.cod), r);
-    if (r.desc) idx.porDescricao.set(`${r.cnpj}|${r.desc}`, r);
+    if (r.desc) {
+      // Na simulação o código do produto é de outra empresa, então o produto é reconhecido por fornecedor + descrição.
+      // Se mais de uma empresa tem o mesmo produto, junta os históricos e anota se as últimas decisões discordam.
+      const k = `${r.cnpj}|${r.desc}`, ant = idx.porDescricao.get(k);
+      const ultimaDe = (x: RegraProduto) => (x.h[x.h.length - 1]?.[1] ?? 0) as 0 | 1;
+      if (!ant) idx.porDescricao.set(k, { ...r, fontes: r.fonte ? [r.fonte] : undefined, porFonte: r.fonte ? { [r.fonte]: ultimaDe(r) } : undefined });
+      else {
+        const porFonte = { ...(ant.porFonte ?? {}), ...(r.fonte ? { [r.fonte]: ultimaDe(r) } : {}) };
+        const junto: RegraProduto = { ...ant, h: [...ant.h, ...r.h].sort((x, y) => ordemMes(x[0]) - ordemMes(y[0])), fontes: Object.keys(porFonte), porFonte };
+        junto.discorda = new Set(Object.values(porFonte)).size > 1
+          ? `As empresas escolhidas discordam sobre este produto: ${Object.entries(porFonte).map(([f, inc]) => `${f} ${inc ? 'incluído' : 'excluído'}`).join(', ')}.`
+          : undefined;
+        idx.porDescricao.set(k, junto);
+      }
+    }
     soma(idx.ncmForn, `${r.cnpj}|${r.ncm}`, r);
     soma(idx.ncm, r.ncm, r);
   });
@@ -170,6 +190,7 @@ export function resumoHistorico(r: RegraProduto) {
 
 export function regraDoItem(it: Item, idx: Indice): RegraProduto | undefined {
   // Só pelo código: casar pela descrição puxava decisões de códigos antigos e piorou o acerto nos testes.
+  if (idx.modo === 'descricao') return idx.porDescricao.get(`${it.cnpj}|${normDesc(it.descricao)}`);
   return idx.porCodigo.get(kProd(it.cnpj, it.produto));
 }
 
@@ -180,7 +201,7 @@ export function decidir(it: Item, idx: Indice): Decisao {
   const aliq = (u && u[1] ? u[2] : null) ?? anf?.aliq ?? an?.aliq ?? aliqGeral(it);
   const base: { aliq: number; credSn: number; nota?: Decisao['nota'] } = { aliq, credSn: 0 };
   // decisão mais recente diferente da anterior e não confirmada pela analista → revisar
-  const mudou = !!rp && rp.h.length > 1 && !!u && !u[3] && rp.h[rp.h.length - 2][1] !== u[1];
+  const mudou = !!rp && !rp.fontes?.length && rp.h.length > 1 && !!u && !u[3] && rp.h[rp.h.length - 2][1] !== u[1];
   // a nota deste mês veio diferente (CST ou ICMS destacado) da última vez que o produto apareceu?
   const agora = notaDoItem(it);
   const nota = u && u[4] !== undefined
@@ -193,6 +214,11 @@ export function decidir(it: Item, idx: Indice): Decisao {
     if (u?.[1] && it.cfop.startsWith('14')) return { ...base, incluir: true, origem: 'produto', conflito: true,
       motivo: `CFOP ${it.cfop} no Questor, mas este produto entrou na apuração antes (${resumoHistorico(rp!).texto}). Conferir o lançamento.` };
     return { ...base, incluir: false, origem: 'cfop', motivo: `CFOP ${it.cfop} fora da apuração` };
+  }
+  if (rp && u && rp.discorda) {
+    // regras de empresas diferentes que se contradizem: segue a maioria (empate = mais recente) e manda revisar
+    const inc = rp.h.filter(p => p[1]).length, exc = rp.h.length - inc;
+    return { ...base, incluir: inc === exc ? !!u[1] : inc > exc, origem: 'produto', conflito: true, motivo: rp.discorda };
   }
   if (rp && u) {
     const notaMudou = !!nota && !nota.igual;

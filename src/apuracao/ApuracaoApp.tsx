@@ -2,9 +2,10 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Upload, History, Check, X, Download, Save, AlertTriangle, Search, RotateCcw, ArrowLeft, Loader2, Filter, HelpCircle } from 'lucide-react';
 import {
   lerArquivo, decidir, aprender, antecipado, exportarExcel, cfopApurado, memoriaVazia, indexar, regraDoItem, resumoHistorico, ALIQ_PADRAO, PERC_SISTEMATICA, CFOPS_APURADOS,
-  descreverNota, type ArquivoLido, type Decisao, type Item, type Memoria, type Origem, type Passo,
+  descreverNota, type ArquivoLido, type Decisao, type Item, type Memoria, type Origem, type Passo, type RegraProduto,
 } from './motor';
 import { carregarRegras, salvarRegras } from './regrasBanco';
+import { carregarClientes, type Cliente } from '../storage';
 
 const brl = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 const n2 = (v: number) => v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -24,7 +25,14 @@ type Ajuste = Partial<Decisao> & { confirmado?: boolean };
 interface Pendente { it: Item; incluir: boolean; aliq: number; antes: string; depois: string; historico: string }
 
 /** Apuração a partir da planilha crua do Questor, com as regras daquele cliente (tabela icms_regras_apuracao). */
-export default function ApuracaoApp({ clienteId, clienteNome, onVoltar }: { clienteId: string; clienteNome: string; onVoltar: () => void }) {
+/**
+ * `simulacao`: apuração avulsa (empresa fora da sistemática). Escolhe de qual cliente usar as regras
+ * (ou só as regras gerais) e nada é gravado no banco.
+ */
+export default function ApuracaoApp({ clienteId, clienteNome, onVoltar, simulacao = false }: { clienteId: string; clienteNome: string; onVoltar: () => void; simulacao?: boolean }) {
+  const [regrasDe, setRegrasDe] = useState<string[]>(clienteId ? [clienteId] : []);
+  const [clientesSim, setClientesSim] = useState<Cliente[]>([]);
+  useEffect(() => { if (simulacao) carregarClientes().then(setClientesSim).catch(() => setClientesSim([])); }, [simulacao]);
   const [mem, setMem] = useState<Memoria>(memoriaVazia());
   const [estadoRegras, setEstadoRegras] = useState<'carregando' | 'ok' | 'sem-tabela' | 'erro'>('carregando');
   const [infoRegras, setInfoRegras] = useState('');
@@ -46,18 +54,33 @@ export default function ApuracaoApp({ clienteId, clienteNome, onVoltar }: { clie
 
   useEffect(() => {
     let vivo = true;
-    carregarRegras(clienteId)
-      .then(r => {
+    setInfoRegras('');
+    if (!regrasDe.length) { setMem(memoriaVazia()); setEstadoRegras('ok'); return; }
+    setEstadoRegras('carregando');
+    Promise.all(regrasDe.map(id => carregarRegras(id).then(r => ({ id, r }))))
+      .then(lista => {
         if (!vivo) return;
-        setMem(r.mem);
-        setEstadoRegras(r.tabelaFalta ? 'sem-tabela' : 'ok');
-        if (r.atualizadoEm) setInfoRegras(`Atualizadas em ${new Date(r.atualizadoEm).toLocaleDateString('pt-BR')}${r.atualizadoPor ? ` por ${r.atualizadoPor}` : ''}`);
+        if (!simulacao) {
+          const r = lista[0].r;
+          setMem(r.mem);
+          setEstadoRegras(r.tabelaFalta ? 'sem-tabela' : 'ok');
+          if (r.atualizadoEm) setInfoRegras(`Atualizadas em ${new Date(r.atualizadoEm).toLocaleDateString('pt-BR')}${r.atualizadoPor ? ` por ${r.atualizadoPor}` : ''}`);
+          return;
+        }
+        // simulação: junta as regras das empresas escolhidas, marcando de qual empresa veio cada produto
+        const junta = memoriaVazia();
+        lista.forEach(({ id, r }) => {
+          const nome = clientesSim.find(c => c.id === id)?.nome ?? id;
+          (Object.entries(r.mem.produtos) as [string, RegraProduto][]).forEach(([k, p]) => { junta.produtos[`${id}#${k}`] = { ...p, fonte: nome }; });
+          junta.meses = [...new Set([...junta.meses, ...r.mem.meses])];
+        });
+        setMem(junta); setEstadoRegras('ok');
       })
       .catch(e => { if (vivo) { setEstadoRegras('erro'); setErro((e as Error).message); } });
     return () => { vivo = false; };
-  }, [clienteId]);
+  }, [regrasDe.join(','), clientesSim]);
 
-  const idx = useMemo(() => indexar(mem), [mem]);
+  const idx = useMemo(() => indexar(mem, simulacao ? 'descricao' : 'codigo'), [mem, simulacao]);
 
   // ── decisões ──
   const automaticas = useMemo(() => {
@@ -101,6 +124,7 @@ export default function ApuracaoApp({ clienteId, clienteNome, onVoltar }: { clie
     const h = rp?.h ?? [];
     if (d.conflito && d.origem === 'produto' && !cfopApurado(it))
       return `Veio com CFOP ${it.cfop} no Questor, mas este produto já entrou na apuração antes. Confira o lançamento.`;
+    if (d.conflito && rp?.discorda) return `${rp.discorda} O app seguiu a maioria. Confira.`;
     const notaTxt = d.nota ? (d.nota.igual ? ` A nota deste mês é igual à anterior (${d.nota.agora}).` : ` A nota mudou: antes ${d.nota.antes}, agora ${d.nota.agora}.`) : '';
     if (d.conflito && d.origem === 'produto' && h.length >= 2 && h[h.length - 2][1] !== h[h.length - 1][1] && !h[h.length - 1][3]) {
       const [ant, ult] = [h[h.length - 2], h[h.length - 1]];
@@ -278,7 +302,7 @@ export default function ApuracaoApp({ clienteId, clienteNome, onVoltar }: { clie
             <ArrowLeft className="w-5 h-5 text-[#C9A227]" />
           </button>
           <div>
-            <p className="text-[10px] uppercase tracking-[0.2em] text-[#C9A227] font-semibold">Apuração da Sistemática · em teste</p>
+            <p className="text-[10px] uppercase tracking-[0.2em] text-[#C9A227] font-semibold">{simulacao ? 'Simulação avulsa · nada é gravado' : 'Apuração da Sistemática · em teste'}</p>
             <h1 className="font-display text-2xl">{clienteNome}</h1>
           </div>
           <button onClick={() => setPainel({ tipo: 'guia' })}
@@ -293,11 +317,28 @@ export default function ApuracaoApp({ clienteId, clienteNome, onVoltar }: { clie
         <section className="bg-white border border-[#E7E2D6] rounded-xl p-4 flex items-center gap-3">
           <History className="w-4 h-4 text-[#9A7B12] shrink-0" />
           <div className="text-sm">
-            <p className="text-[11px] uppercase tracking-wider text-stone-500 font-semibold">Regras deste cliente</p>
+            <p className="text-[11px] uppercase tracking-wider text-stone-500 font-semibold">{simulacao ? 'Regras usadas na simulação' : 'Regras deste cliente'}</p>
+            {simulacao && (
+              <details className="mt-1 mb-1">
+                <summary className="cursor-pointer text-sm border border-[#E7E2D6] rounded-lg px-3 py-1.5 bg-white inline-block">
+                  {regrasDe.length ? `Regras de ${regrasDe.length} empresa(s): ${regrasDe.map(id => clientesSim.find(c => c.id === id)?.nome ?? id).join(', ')}` : 'Só as regras gerais (CFOP e CST) · clique para escolher empresas'}
+                </summary>
+                <div className="mt-2 grid grid-cols-2 lg:grid-cols-4 gap-x-4 gap-y-1 bg-white border border-[#E7E2D6] rounded-lg p-3 max-h-64 overflow-y-auto">
+                  {[...clientesSim].sort((a, b) => a.nome.localeCompare(b.nome)).map(c => (
+                    <label key={c.id} className="text-xs flex items-center gap-2">
+                      <input type="checkbox" checked={regrasDe.includes(c.id)}
+                        onChange={() => setRegrasDe(l => (l.includes(c.id) ? l.filter(x => x !== c.id) : [...l, c.id]))} />{c.nome}
+                    </label>
+                  ))}
+                </div>
+                <p className="text-[11px] text-stone-500 mt-1">Na simulação o produto é reconhecido pelo fornecedor + descrição da nota (o código do produto muda de uma empresa para outra). Se as empresas escolhidas discordarem sobre um produto, o app segue a maioria e o item vai para "A revisar".</p>
+              </details>
+            )}
             {estadoRegras === 'carregando' && <p className="text-stone-500 flex items-center gap-1.5"><Loader2 className="w-3.5 h-3.5 animate-spin" />Carregando do banco…</p>}
             {estadoRegras === 'sem-tabela' && <p className="text-[#9A7B12]">A tabela de regras ainda não foi criada no Supabase. A apuração funciona só com as regras gerais (CFOP e CST) e não dá para finalizar.</p>}
             {estadoRegras === 'erro' && <p className="text-red-600">Não foi possível carregar as regras.</p>}
-            {estadoRegras === 'ok' && (mem.meses.length
+            {estadoRegras === 'ok' && simulacao && !regrasDe.length && <p className="text-stone-500">Sem histórico: o app decide pela Natureza (1102/1910) e pelo CST. Escolha um cliente acima para usar as regras dele.</p>}
+            {estadoRegras === 'ok' && (simulacao && !regrasDe.length ? null : mem.meses.length
               ? <p><b>{qtdProdutos.toLocaleString('pt-BR')}</b> produtos conhecidos · {mem.meses.length} mês(es): {mem.meses.join(', ')}{infoRegras && <span className="text-stone-400"> · {infoRegras}</span>}</p>
               : <p className="text-stone-500">Ainda sem histórico. A primeira apuração sai pelas regras gerais (CFOP e CST) e, ao finalizar, vira a base das próximas.</p>)}
           </div>
@@ -526,11 +567,11 @@ export default function ApuracaoApp({ clienteId, clienteNome, onVoltar }: { clie
                 className="flex items-center gap-1.5 border border-[#17150F] text-xs font-semibold px-4 py-2.5 rounded-lg hover:bg-stone-50">
                 <Download className="w-4 h-4" />Baixar Excel no layout da analista
               </button>
-              <button onClick={finalizar} disabled={gravando || estadoRegras !== 'ok'}
+              {!simulacao && <button onClick={finalizar} disabled={gravando || estadoRegras !== 'ok'}
                 title={estadoRegras === 'ok' ? 'Grava as decisões deste mês nas regras do cliente' : 'As regras do banco não estão disponíveis'}
                 className="flex items-center gap-1.5 bg-[#17150F] text-white text-xs font-semibold px-4 py-2.5 rounded-lg hover:bg-black disabled:opacity-30">
                 {gravando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}Finalizar apuração
-              </button>
+              </button>}
             </section>
           </>
         )}

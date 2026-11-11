@@ -808,7 +808,8 @@ function BakeryPanel({ allProducts, questorTotal, onUpdatePrintData, onPrint, wo
 }
 
 // ─── TELA HOME ────────────────────────────────────────────────────────────────
-function TelaHome({ onSelectCliente, onOpenClientes, onOpenHistorico, onOpenPainel, onSignOut, reloadKey }: {
+function TelaHome({ onSelectCliente, onOpenClientes, onOpenHistorico, onOpenPainel, onOpenSimulacao, onSignOut, reloadKey }: {
+  onOpenSimulacao: () => void;
   onSelectCliente: (c: Cliente) => void;
   onOpenClientes: () => void;
   onOpenHistorico: () => void;
@@ -851,6 +852,14 @@ function TelaHome({ onSelectCliente, onOpenClientes, onOpenHistorico, onOpenPain
       {/* Header com botões */}
       <div className="h-8 relative">
         <div className="absolute top-3 right-6 flex items-center gap-2">
+          <button
+            onClick={onOpenSimulacao}
+            title="Apurar a planilha crua de uma empresa fora da sistemática, usando as regras de um cliente (nada é gravado)"
+            className="flex items-center gap-2 bg-white/5 hover:bg-white/15 border border-white/10 text-white/60 hover:text-white text-xs font-bold px-3 py-2 rounded-xl transition-all"
+          >
+            <Calculator className="w-4 h-4" />
+            Simulação avulsa
+          </button>
           <button
             onClick={onOpenPainel}
             className="flex items-center gap-2 bg-white/10 hover:bg-[#F5C000] border border-white/20 hover:border-[#F5C000] text-white hover:text-[#001F3F] text-xs font-bold px-4 py-2 rounded-xl transition-all"
@@ -1593,7 +1602,7 @@ function DashboardCliente({ cliente, onNovaApuracao, onApurarQuestor, onVoltar, 
 export default function App() {
   const { signOut } = useAuth();
   // Navegação: 'home' | 'dashboard' | 'auditoria'
-  const [tela, setTela] = useState<'home' | 'dashboard' | 'auditoria' | 'apuracao'>('home');
+  const [tela, setTela] = useState<'home' | 'dashboard' | 'auditoria' | 'apuracao' | 'simulacao'>('home');
   const [clienteAtivo, setClienteAtivo] = useState<Cliente | null>(null);
 
   const [isProcessing, setIsProcessing] = useState(false);
@@ -1698,6 +1707,11 @@ export default function App() {
     ];
   }, [processedData, descartadosTemp]);
 
+  // Simulação avulsa da sistemática (empresa fora da carteira; nada é gravado)
+  if (tela === 'simulacao') {
+    return <ApuracaoApp clienteId="" clienteNome="Simulação avulsa" simulacao onVoltar={() => setTela('home')} />;
+  }
+
   // Tela Home
   if (tela === 'home') {
     return (
@@ -1707,6 +1721,7 @@ export default function App() {
           onOpenClientes={() => setShowClientes(true)}
           onOpenHistorico={() => setShowHistorico(true)}
           onOpenPainel={() => setShowPainel(true)}
+          onOpenSimulacao={() => setTela('simulacao')}
           onSignOut={signOut}
           reloadKey={homeReloadKey}
         />
