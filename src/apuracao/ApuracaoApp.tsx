@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Upload, History, Check, X, Download, Save, AlertTriangle, Search, RotateCcw, ArrowLeft, Loader2, Filter, HelpCircle } from 'lucide-react';
+import { Upload, History, Check, X, Download, Save, AlertTriangle, Search, RotateCcw, ArrowLeft, Loader2, Filter, HelpCircle, ArrowRight } from 'lucide-react';
 import {
-  lerArquivo, decidir, aprender, antecipado, exportarExcel, cfopApurado, memoriaVazia, indexar, regraDoItem, resumoHistorico, ALIQ_PADRAO, PERC_SISTEMATICA, CFOPS_APURADOS,
+  lerArquivo, decidir, aprender, antecipado, exportarExcel, gerarArquivo, cfopApurado, memoriaVazia, indexar, regraDoItem, resumoHistorico, ALIQ_PADRAO, PERC_SISTEMATICA, CFOPS_APURADOS,
   descreverNota, type ArquivoLido, type Decisao, type Item, type Memoria, type Origem, type Passo, type RegraProduto,
 } from './motor';
 import { carregarRegras, salvarRegras } from './regrasBanco';
@@ -29,7 +29,11 @@ interface Pendente { it: Item; incluir: boolean; aliq: number; antes: string; de
  * `simulacao`: apuração avulsa (empresa fora da sistemática). Escolhe de qual cliente usar as regras
  * (ou só as regras gerais) e nada é gravado no banco.
  */
-export default function ApuracaoApp({ clienteId, clienteNome, onVoltar, simulacao = false }: { clienteId: string; clienteNome: string; onVoltar: () => void; simulacao?: boolean }) {
+export default function ApuracaoApp({ clienteId, clienteNome, onVoltar, simulacao = false, onContinuar }: {
+  clienteId: string; clienteNome: string; onVoltar: () => void; simulacao?: boolean;
+  /** Depois de finalizar: leva a planilha pronta para a "Nova Apuração" (trigo, ranking, relatórios e salvar). */
+  onContinuar?: (arquivo: File) => void;
+}) {
   const [regrasDe, setRegrasDe] = useState<string[]>(clienteId ? [clienteId] : []);
   const [clientesSim, setClientesSim] = useState<Cliente[]>([]);
   useEffect(() => { if (simulacao) carregarClientes().then(setClientesSim).catch(() => setClientesSim([])); }, [simulacao]);
@@ -50,6 +54,7 @@ export default function ApuracaoApp({ clienteId, clienteNome, onVoltar, simulaca
   const [aviso, setAviso] = useState('');
   const [carregando, setCarregando] = useState('');
   const [gravando, setGravando] = useState(false);
+  const [arquivoFinal, setArquivoFinal] = useState<File | null>(null);
   const inputCrua = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -259,7 +264,7 @@ export default function ApuracaoApp({ clienteId, clienteNome, onVoltar, simulaca
     setErro(''); setAviso(''); setCarregando(`Lendo ${file.name}…`);
     try {
       const a = await lerArquivo(file);
-      setArquivo(a); setMes(a.mes); setManuais(new Map()); setAba(a.analista ? 'divergencias' : 'sistematica'); setLimite(150);
+      setArquivo(a); setMes(a.mes); setManuais(new Map()); setArquivoFinal(null); setAba(a.analista ? 'divergencias' : 'sistematica'); setLimite(150);
       if (a.mes && mem.meses.includes(a.mes)) setAviso(`${a.mes} já foi finalizado antes para ${clienteNome}. Ao finalizar de novo, as decisões deste mês serão substituídas.`);
     } catch (e) { setErro((e as Error).message); }
     setCarregando('');
@@ -275,9 +280,11 @@ export default function ApuracaoApp({ clienteId, clienteNome, onVoltar, simulaca
         const d = decisoes.get(it.id)!; return { incluir: d.incluir, aliq: d.aliq, confirmado: !!manuais.get(it.id)?.confirmado };
       }, mes);
       await salvarRegras(clienteId, nova);
+      // planilha pronta (com as decisões deste momento) para seguir à Nova Apuração
+      setArquivoFinal(gerarArquivo(`${clienteNome} ${mes.replace('/', '-')}.xlsx`, arquivo.cabecalho, arquivo.itens, decisoes));
       setMem(nova); setManuais(new Map()); setEstadoRegras('ok');
       setInfoRegras(`Atualizadas agora`);
-      setAviso(`Apuração de ${mes} finalizada. As decisões foram gravadas nas regras de ${clienteNome} e a próxima apuração já parte delas.`);
+      setAviso(`Apuração de ${mes} finalizada. As decisões foram gravadas nas regras de ${clienteNome}.${onContinuar ? ' Agora clique em "Continuar para o relatório" para revisar o trigo, o ranking e salvar.' : ''}`);
     } catch (e) { setErro((e as Error).message); }
     setGravando(false);
   }
@@ -566,8 +573,14 @@ export default function ApuracaoApp({ clienteId, clienteNome, onVoltar, simulaca
               {!simulacao && <button onClick={finalizar} disabled={gravando || estadoRegras !== 'ok'}
                 title={estadoRegras === 'ok' ? 'Grava as decisões deste mês nas regras do cliente' : 'As regras do banco não estão disponíveis'}
                 className="flex items-center gap-1.5 bg-[#17150F] text-white text-xs font-semibold px-4 py-2.5 rounded-lg hover:bg-black disabled:opacity-30">
-                {gravando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}Finalizar apuração
+                {gravando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}{arquivoFinal ? 'Finalizar de novo' : 'Finalizar apuração'}
               </button>}
+              {!simulacao && onContinuar && arquivoFinal && (
+                <button onClick={() => onContinuar(arquivoFinal)} title="Abre a Nova Apuração com esta planilha já anexada"
+                  className="flex items-center gap-1.5 bg-[#C9A227] text-[#17150F] text-xs font-bold px-4 py-2.5 rounded-lg hover:bg-[#B8921C]">
+                  Continuar para o relatório (trigo, ranking, salvar) <ArrowRight className="w-4 h-4" />
+                </button>
+              )}
             </section>
           </>
         )}

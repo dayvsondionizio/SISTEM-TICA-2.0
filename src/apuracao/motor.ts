@@ -298,7 +298,8 @@ function formatarNumeros(ws: XLSX.WorkSheet) {
   }
 }
 
-export function exportarExcel(nomeArquivo: string, cabecalho: unknown[], itens: Item[], dec: Map<number, Decisao>) {
+/** Monta a pasta no layout da analista (crua, ITENS, ICMS, SISTEMATICA). */
+function montarPasta(nomeArquivo: string, cabecalho: unknown[], itens: Item[], dec: Map<number, Decisao>) {
   const wb = XLSX.utils.book_new();
   const cab = cabecalho.slice(0, 19);
   const crua = XLSX.utils.aoa_to_sheet([cab, ...itens.map(i => i.linha)]);
@@ -319,13 +320,26 @@ export function exportarExcel(nomeArquivo: string, cabecalho: unknown[], itens: 
   const sist = XLSX.utils.aoa_to_sheet([[...cab, ...extra], ...incl.map(i => [...i.linha])]);
   incl.forEach((it, idx) => {
     const r = idx + 2, d = dec.get(it.id)!;
-    const f = (col: string, formula: string) => { sist[`${col}${r}`] = { t: 'n', f: formula }; };
-    f('T', `O${r}`); f('U', `S${r}`); f('V', `R${r}`);
-    f('X', `T${r}*25%`); f('Y', `T${r}+X${r}`);
-    f('Z', `Y${r}*${String(d.aliq)}%`); f('AA', `Z${r}-U${r}-W${r}`);
+    // fórmula + valor já calculado (assim o arquivo pode ser lido direto, sem abrir no Excel antes)
+    const f = (col: string, formula: string, v: number) => { sist[`${col}${r}`] = { t: 'n', f: formula, v }; };
+    const base = it.valor * (1 + PERC_SISTEMATICA), z = base * d.aliq / 100;
+    f('T', `O${r}`, it.valor); f('U', `S${r}`, it.icms); f('V', `R${r}`, it.aliqDest);
+    f('X', `T${r}*25%`, it.valor * PERC_SISTEMATICA); f('Y', `T${r}+X${r}`, base);
+    f('Z', `Y${r}*${String(d.aliq)}%`, z); f('AA', `Z${r}-U${r}-W${r}`, z - it.icms);
   });
   sist['!ref'] = `A1:AA${incl.length + 1}`;
   XLSX.utils.book_append_sheet(wb, sist, 'SISTEMATICA');
   wb.SheetNames.forEach(n => { formatarNumeros(wb.Sheets[n]); ajustarLarguras(wb.Sheets[n]); });
-  XLSX.writeFile(wb, nomeArquivo.endsWith('.xlsx') ? nomeArquivo : `${nomeArquivo}.xlsx`);
+  return wb;
+}
+const comExtensao = (n: string) => (n.toLowerCase().endsWith('.xlsx') ? n : `${n}.xlsx`);
+
+export function exportarExcel(nomeArquivo: string, cabecalho: unknown[], itens: Item[], dec: Map<number, Decisao>) {
+  XLSX.writeFile(montarPasta(nomeArquivo, cabecalho, itens, dec), comExtensao(nomeArquivo));
+}
+
+/** A mesma planilha como arquivo em memória, para seguir direto para a "Nova Apuração" sem baixar e anexar de novo. */
+export function gerarArquivo(nomeArquivo: string, cabecalho: unknown[], itens: Item[], dec: Map<number, Decisao>): File {
+  const dados = XLSX.write(montarPasta(nomeArquivo, cabecalho, itens, dec), { bookType: 'xlsx', type: 'array' }) as ArrayBuffer;
+  return new File([dados], comExtensao(nomeArquivo), { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
 }

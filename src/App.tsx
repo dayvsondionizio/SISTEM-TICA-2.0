@@ -1734,7 +1734,8 @@ export default function App() {
 
   // Apuração a partir da planilha crua do Questor (em teste; regras guardadas por cliente no navegador)
   if (tela === 'apuracao' && clienteAtivo) {
-    return <ApuracaoApp clienteId={String(clienteAtivo.id)} clienteNome={clienteAtivo.nome} onVoltar={voltarDashboard} />;
+    return <ApuracaoApp clienteId={String(clienteAtivo.id)} clienteNome={clienteAtivo.nome} onVoltar={voltarDashboard}
+      onContinuar={arquivo => { resetUploadState(); setPendingFile(arquivo); setTela('auditoria'); }} />;
   }
 
   // Tela Dashboard do Cliente
